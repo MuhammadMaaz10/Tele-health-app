@@ -5,6 +5,9 @@ import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_sizing.dart';
 import '../../../../shared_widgets/text_field.dart';
+import '../../forgot_password/view/fotgot_password.dart';
+import '../../registration/views/doctor_registration.dart';
+import '../../registration/views/patient_registration.dart';
 import '../../registration/views/sign_up_view.dart';
 import '../../../../shared_widgets/app_button.dart';
 
@@ -100,12 +103,17 @@ class _LoginViewState extends State<LoginView> {
                         ),
                         kGap20,
 
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: CustomText(
-                            text: 'Forget Password?',
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textColor,
+                        GestureDetector(
+                          onTap: () {
+                            Get.to(ForgotPasswordView());
+                          },
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: CustomText(
+                              text: 'Forget Password?',
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textColor,
+                            ),
                           ),
                         ),
 
@@ -119,10 +127,12 @@ class _LoginViewState extends State<LoginView> {
                           onPressed: () {
                             // Role-based login handling
                             if (selectedRole == 'Doctor') {
+                              Get.to(DoctorRegistrationView());
                               // Doctor login logic
                             } else if (selectedRole == 'Nurse') {
                               // Nurse login logic
                             } else {
+                              Get.to(PatientRegistrationView());
                               // User login logic
                             }
                           },

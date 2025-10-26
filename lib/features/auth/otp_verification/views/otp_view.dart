@@ -48,7 +48,7 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("OTP Verified Successfully ✅")),
       );
-      Get.to(CompleteProfileView());
+      Get.to(PatientRegistrationView());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Invalid OTP. Please try again ❌")),
