@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-
 import 'package:telehealth_app/core/theme/app_colors.dart';
+
 class CustomTextField extends StatefulWidget {
   final String? label;
   final String? hintText;
@@ -54,6 +54,11 @@ class _CustomTextFieldState extends State<CustomTextField> {
       style: TextStyle(fontSize: 14,fontWeight: FontWeight.w500, color: AppColors.black),
       decoration: InputDecoration(
         labelText: widget.label,
+        // labelStyle: TextStyle(
+        //   fontSize: 14,
+        //   fontWeight: FontWeight.w500,
+        //   color: AppColors.primary,
+        // ),
         hintText: widget.hintText,
         hintStyle: TextStyle(fontSize: 14,fontWeight: FontWeight.w400, color: AppColors.hintColor),
         prefixIcon: widget.prefixIcon,

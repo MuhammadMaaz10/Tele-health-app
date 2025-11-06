@@ -4,6 +4,7 @@ import 'package:telehealth_app/core/theme/app_colors.dart';
 import 'package:telehealth_app/core/utils/app_sizing.dart';
 import 'package:telehealth_app/shared_widgets/app_button.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
+import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
 
 import '../../../../shared_widgets/otp_text_field.dart';
 import '../../registration/views/patient_registration.dart';
@@ -69,113 +70,80 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(18.0),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints:
-                  BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Back button
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: const Icon(Icons.arrow_back_outlined, size: 24),
-                        ),
-                        kGap32,
-
-                        // Title
-                        CustomText(
-                          text: "Verify Your Email",
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textColor,
-                        ),
-                        kGap8,
-                        CustomText(
-                          text:
-                          "We’ve sent a 6-digit code to your email address.",
-                          color: AppColors.hintColor,
-                          fontSize: 14,
-                        ),
-                        kGap40,
-
-                        // OTP Fields
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: List.generate(6, (index) {
-                            return OtpTextField(
-                              controller: _otpControllers[index],
-                              focusNode: _focusNodes[index],
-                              onChanged: (value) {
-                                if (value.isNotEmpty && index < 5) {
-                                  FocusScope.of(context).requestFocus(_focusNodes[index + 1]);
-                                } else if (value.isEmpty && index > 0) {
-                                  FocusScope.of(context).requestFocus(_focusNodes[index - 1]);
-                                }
-                                _validateOTP();
-                              },
-                              autoFocus: index == 0,
-                            );
-                          }),
-                        ),
-
-                        kGap16,
-
-                        // Resend option
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            CustomText(
-                              text: "Didn’t get the code?",
-                              color: AppColors.textColor,
-                              fontSize: 14,
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text("OTP Resent Successfully")),
-                                );
-                              },
-                              child: CustomText(
-                                text: " Resend",
-                                color: AppColors.primary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const Spacer(),
-
-                        // Verify Button
-                        CustomButton(
-                          text: _isLoading ? "Verifying..." : "Verify",
-                          isLoading: _isLoading,
-                          onPressed: _isButtonEnabled && !_isLoading
-                              ? _onVerifyPressed
-                              : null,
-                          backgroundColor: _isButtonEnabled
-                              ? AppColors.primary
-                              : AppColors.primary.withOpacity(.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
+    return ResponsiveAuthLayout(
+      title: 'Verify Your Email',
+      description: 'We\'ve sent a verification code to your email address. Please enter it below to continue.',
+      showBackButton: true,
+      formContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CustomText(
+            text: "Verify Your Email",
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textColor,
           ),
-        ),
+          kGap8,
+          CustomText(
+            text: "We've sent a 6-digit code to your email address.",
+            color: AppColors.hintColor,
+            fontSize: 14,
+          ),
+          kGap40,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(6, (index) {
+              return OtpTextField(
+                controller: _otpControllers[index],
+                focusNode: _focusNodes[index],
+                onChanged: (value) {
+                  if (value.isNotEmpty && index < 5) {
+                    FocusScope.of(context).requestFocus(_focusNodes[index + 1]);
+                  } else if (value.isEmpty && index > 0) {
+                    FocusScope.of(context).requestFocus(_focusNodes[index - 1]);
+                  }
+                  _validateOTP();
+                },
+                autoFocus: index == 0,
+              );
+            }),
+          ),
+          kGap16,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              CustomText(
+                text: "Didn't get the code?",
+                color: AppColors.textColor,
+                fontSize: 14,
+              ),
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("OTP Resent Successfully")),
+                  );
+                },
+                child: CustomText(
+                  text: " Resend",
+                  color: AppColors.primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          kGap40,
+          CustomButton(
+            text: _isLoading ? "Verifying..." : "Verify",
+            isLoading: _isLoading,
+            onPressed: _isButtonEnabled && !_isLoading
+                ? _onVerifyPressed
+                : null,
+            backgroundColor: _isButtonEnabled
+                ? AppColors.primary
+                : AppColors.primary.withOpacity(.5),
+          ),
+        ],
       ),
     );
   }

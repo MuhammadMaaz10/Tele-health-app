@@ -68,60 +68,63 @@ class ProfessionalDetailsStep extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
+
+          // 📂 ID Document Upload
           CustomText(
-            text: "Upload Certificate / License",
+            text: "Upload ID Document",
             fontWeight: FontWeight.w600,
             color: AppColors.textColor,
           ),
           const SizedBox(height: 8),
           _buildFilePicker(
-            label: "Select File",
-            fileName: provider.certificateFile?.name,
-            onTap: () => provider.pickFile("certificate"),
+            label: "Select ID Document",
+            fileName: provider.idDocumentFile?.name,
+            onTap: () => provider.pickFile("idDocument"),
           ),
 
           const SizedBox(height: 24),
+
+          // 📂 Practicing Certificate Upload
           CustomText(
-            text: "National ID Card",
+            text: "Upload Practicing Certificate",
             fontWeight: FontWeight.w600,
             color: AppColors.textColor,
           ),
           const SizedBox(height: 8),
+          _buildFilePicker(
+            label: "Select Practicing Certificate",
+            fileName: provider.practicingCertificateFile?.name,
+            onTap: () => provider.pickFile("practicingCertificate"),
+          ),
 
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilePicker(
-                  label: "Front Side",
-                  fileName: provider.idFrontFile?.name,
-                  onTap: () => provider.pickFile("idFront"),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildFilePicker(
-                  label: "Back Side",
-                  fileName: provider.idBackFile?.name,
-                  onTap: () => provider.pickFile("idBack"),
-                ),
-              ),
-            ],
+          const SizedBox(height: 24),
+
+          // 📂 Educational Certificate Upload
+          CustomText(
+            text: "Upload Educational Certificate",
+            fontWeight: FontWeight.w600,
+            color: AppColors.textColor,
+          ),
+          const SizedBox(height: 8),
+          _buildFilePicker(
+            label: "Select Educational Certificate",
+            fileName: provider.educationalCertificateFile?.name,
+            onTap: () => provider.pickFile("educationalCertificate"),
           ),
 
           const SizedBox(height: 40),
           CustomButton(
             text: "Continue",
             onPressed: provider.specialization.text.isNotEmpty &&
-                provider.certificateFile != null &&
-                provider.idFrontFile != null &&
-                provider.idBackFile != null
+                provider.idDocumentFile != null &&
+                provider.practicingCertificateFile != null &&
+                provider.educationalCertificateFile != null
                 ? provider.nextStep
                 : null,
-            backgroundColor:
-            provider.specialization.text.isNotEmpty &&
-                provider.certificateFile != null &&
-                provider.idFrontFile != null &&
-                provider.idBackFile != null
+            backgroundColor: provider.specialization.text.isNotEmpty &&
+                provider.idDocumentFile != null &&
+                provider.practicingCertificateFile != null &&
+                provider.educationalCertificateFile != null
                 ? AppColors.primary
                 : AppColors.primary.withOpacity(0.5),
           ),

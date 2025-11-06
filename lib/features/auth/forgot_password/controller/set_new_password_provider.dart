@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+// Network calls for reset/otp can be wired once email/otp are collected in UI
 
 class SetNewPasswordProvider extends ChangeNotifier {
   final newPasswordController = TextEditingController();
@@ -19,6 +20,8 @@ class SetNewPasswordProvider extends ChangeNotifier {
           confirmPasswordController.text.isNotEmpty &&
           newPasswordController.text == confirmPasswordController.text &&
           newPasswordController.text.length >= 6;
+
+  // final AuthApi _authApi = AuthApi();
 
   void toggleNewPasswordVisibility() {
     _obscureNewPassword = !_obscureNewPassword;

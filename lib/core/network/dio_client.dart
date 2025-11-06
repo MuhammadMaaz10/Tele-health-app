@@ -19,6 +19,14 @@ class ApiClient {
     dio.interceptors.add(ApiInterceptor());
   }
 
+  void setAuthToken(String? token) {
+    if (token == null || token.isEmpty) {
+      dio.options.headers.remove('Authorization');
+    } else {
+      dio.options.headers['Authorization'] = 'Bearer $token';
+    }
+  }
+
   Future<Response> post(String endpoint, {Map<String, dynamic>? data}) async {
     try {
       final response = await dio.post(endpoint, data: data);

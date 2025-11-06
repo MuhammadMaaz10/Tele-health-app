@@ -1,13 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:telehealth_app/features/auth/services/auth_api.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 class PatientProfileProvider extends ChangeNotifier {
-  // Controllers
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
   final phoneController = TextEditingController();
-  final ageController = TextEditingController();
   final genderController = TextEditingController();
   final dobController = TextEditingController();
   final locationController = TextEditingController();
@@ -15,14 +18,14 @@ class PatientProfileProvider extends ChangeNotifier {
   final kinSurnameController = TextEditingController();
   final kinPhoneController = TextEditingController();
 
-  // Validation
   final Map<String, String?> errors = {};
 
-  // Location
   bool isLoadingLocation = false;
   String? locationError;
-
   DateTime? selectedDate;
+
+  File? profileImage;
+  File? idDocument;
 
   // ---------------------------------------------------------
   // VALIDATION
@@ -46,13 +49,6 @@ class PatientProfileProvider extends ChangeNotifier {
             ? "Enter valid phone number"
             : null;
         break;
-      case "age":
-        errors[key] = value.isEmpty
-            ? "Required"
-            : int.tryParse(value) == null
-            ? "Enter valid number"
-            : null;
-        break;
     }
     notifyListeners();
   }
@@ -62,7 +58,6 @@ class PatientProfileProvider extends ChangeNotifier {
       firstNameController.text,
       lastNameController.text,
       phoneController.text,
-      ageController.text,
       genderController.text,
       dobController.text,
       locationController.text,
@@ -77,7 +72,6 @@ class PatientProfileProvider extends ChangeNotifier {
       "firstName",
       "lastName",
       "phone",
-      "age",
       "gender",
       "dob",
       "location",
@@ -97,8 +91,6 @@ class PatientProfileProvider extends ChangeNotifier {
         return lastNameController.text;
       case "phone":
         return phoneController.text;
-      case "age":
-        return ageController.text;
       case "gender":
         return genderController.text;
       case "dob":
@@ -113,6 +105,29 @@ class PatientProfileProvider extends ChangeNotifier {
         return kinPhoneController.text;
       default:
         return '';
+    }
+  }
+
+  // ---------------------------------------------------------
+  // IMAGE PICKERS
+  // ---------------------------------------------------------
+  Future<void> pickProfileImage(BuildContext context) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      profileImage = File(picked.path);
+      notifyListeners();
+    }
+  }
+
+  Future<void> pickIdDocument(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+    );
+    if (result != null && result.files.single.path != null) {
+      idDocument = File(result.files.single.path!);
+      notifyListeners();
     }
   }
 
@@ -156,10 +171,8 @@ class PatientProfileProvider extends ChangeNotifier {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
+      List<Placemark> placemarks =
+      await placemarkFromCoordinates(position.latitude, position.longitude);
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks.first;
@@ -214,11 +227,38 @@ class PatientProfileProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Profile Completed Successfully!")),
-    );
+    submitToApi(context);
     return true;
+  }
+
+  final AuthApi _authApi = AuthApi();
+
+  Future<void> submitToApi(BuildContext context) async {
+    try {
+      final payload = <String, dynamic>{
+        'firstName': firstNameController.text.trim(),
+        'lastName': lastNameController.text.trim(),
+        'phone': phoneController.text.trim(),
+        'gender': genderController.text.trim(),
+        'dob': dobController.text.trim(),
+        'location': locationController.text.trim(),
+        'kin': {
+          'name': kinNameController.text.trim(),
+          'surname': kinSurnameController.text.trim(),
+          'phone': kinPhoneController.text.trim(),
+        },
+      };
+
+      await _authApi.registerPatient(payload: payload);
+      // Show success
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Patient registered successfully.')),
+      );
+    } on NetworkExceptions catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    }
   }
 
   // ---------------------------------------------------------
@@ -228,7 +268,6 @@ class PatientProfileProvider extends ChangeNotifier {
     firstNameController.dispose();
     lastNameController.dispose();
     phoneController.dispose();
-    ageController.dispose();
     genderController.dispose();
     dobController.dispose();
     locationController.dispose();

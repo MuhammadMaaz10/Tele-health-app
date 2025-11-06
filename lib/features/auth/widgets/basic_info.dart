@@ -6,6 +6,13 @@ import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/text_field.dart';
 
 import '../registration/controller/doctor_registration_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:telehealth_app/core/theme/app_colors.dart';
+import 'package:telehealth_app/shared_widgets/app_button.dart';
+import 'package:telehealth_app/shared_widgets/custom_text.dart';
+import 'package:telehealth_app/shared_widgets/text_field.dart';
+import '../registration/controller/doctor_registration_provider.dart';
 
 class BasicInfoStep extends StatelessWidget {
   const BasicInfoStep({Key? key}) : super(key: key);
@@ -53,12 +60,46 @@ class BasicInfoStep extends StatelessWidget {
             controller: provider.practiceNumber,
           ),
           const SizedBox(height: 16),
+
+          // 🩺 Role Picker (Doctor / Nurse)
           CustomTextField(
-            hintText: "Age",
-            controller: provider.age,
-            keyboardType: TextInputType.number,
+            hintText: "Role (Doctor / Nurse)",
+            controller: provider.role,
+            readOnly: true,
+            suffixIcon: const Icon(Icons.arrow_drop_down),
+            onTap: () async {
+              final role = await showModalBottomSheet<String>(
+                context: context,
+                builder: (_) => const RolePickerSheet(),
+              );
+              if (role != null) provider.role.text = role;
+            },
           ),
           const SizedBox(height: 16),
+
+          // 🎂 Date of Birth Picker
+          CustomTextField(
+            hintText: "Date of Birth",
+            controller: provider.dob,
+            readOnly: true,
+            suffixIcon: const Icon(Icons.calendar_today_outlined),
+            onTap: () async {
+              final now = DateTime.now();
+              final pickedDate = await showDatePicker(
+                context: context,
+                initialDate: DateTime(now.year - 25),
+                firstDate: DateTime(1900),
+                lastDate: now,
+              );
+              if (pickedDate != null) {
+                provider.dob.text =
+                "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // 🚻 Gender Picker
           CustomTextField(
             hintText: "Gender",
             controller: provider.gender,
@@ -74,6 +115,7 @@ class BasicInfoStep extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
+          // 📍 Location Field
           CustomTextField(
             hintText: "Your Location",
             controller: provider.location,
@@ -98,12 +140,16 @@ class BasicInfoStep extends StatelessWidget {
             text: "Continue",
             onPressed: provider.firstName.text.isNotEmpty &&
                 provider.lastName.text.isNotEmpty &&
-                provider.phone.text.isNotEmpty
+                provider.phone.text.isNotEmpty &&
+                provider.role.text.isNotEmpty &&
+                provider.dob.text.isNotEmpty
                 ? provider.nextStep
                 : null,
             backgroundColor: (provider.firstName.text.isNotEmpty &&
                 provider.lastName.text.isNotEmpty &&
-                provider.phone.text.isNotEmpty)
+                provider.phone.text.isNotEmpty &&
+                provider.role.text.isNotEmpty &&
+                provider.dob.text.isNotEmpty)
                 ? AppColors.primary
                 : AppColors.primary.withOpacity(0.5),
           ),
@@ -123,10 +169,34 @@ class GenderPickerSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: genders
-            .map((g) => ListTile(
-          title: Text(g),
-          onTap: () => Navigator.pop(context, g),
-        ))
+            .map(
+              (g) => ListTile(
+            title: Text(g),
+            onTap: () => Navigator.pop(context, g),
+          ),
+        )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class RolePickerSheet extends StatelessWidget {
+  const RolePickerSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final roles = ["Doctor", "Nurse"];
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: roles
+            .map(
+              (r) => ListTile(
+            title: Text(r),
+            onTap: () => Navigator.pop(context, r),
+          ),
+        )
             .toList(),
       ),
     );

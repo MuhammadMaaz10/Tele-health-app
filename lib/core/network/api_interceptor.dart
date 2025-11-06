@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'dart:developer';
+import '../ui/snackbar_service.dart';
+import 'network_exceptions.dart';
 
 class ApiInterceptor extends Interceptor {
   @override
@@ -24,6 +26,15 @@ class ApiInterceptor extends Interceptor {
     log("Status => ${err.response?.statusCode}");
     log("Error => ${err.response?.data}");
     log("Message => ${err.message}");
+    try {
+      final message = NetworkExceptions.handleResponse(err).message;
+      SnackbarService.showError(message);
+    } catch (_) {
+      // Fallback: show dio's message if mapping fails
+      if (err.message != null) {
+        SnackbarService.showError(err.message!);
+      }
+    }
     super.onError(err, handler);
   }
 }

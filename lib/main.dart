@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:provider/provider.dart';
 import 'package:device_preview/device_preview.dart';
+import 'core/ui/snackbar_service.dart';
 import 'features/auth/forgot_password/controller/forgot_password_provider.dart';
 import 'features/auth/forgot_password/controller/set_new_password_provider.dart';
 import 'features/auth/login/controller/login_controller.dart';
@@ -13,7 +14,7 @@ import 'features/auth/registration/controller/sign_up_provider.dart';
 void main() {
   runApp(
     DevicePreview(
-      enabled: !bool.fromEnvironment('dart.vm.product'), // ✅ Only active in debug mode
+      enabled: true, // ✅ Only active in debug mode
       builder: (context) => MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => SignUpProvider()),
@@ -44,6 +45,8 @@ class MyApp extends StatelessWidget {
       // ✅ Add DevicePreview properties
       builder: DevicePreview.appBuilder,
       locale: DevicePreview.locale(context),
+
+      scaffoldMessengerKey: SnackbarService.scaffoldMessengerKey,
 
       home: LoginView(),
     );

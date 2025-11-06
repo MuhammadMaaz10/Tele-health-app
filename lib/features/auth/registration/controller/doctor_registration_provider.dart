@@ -1,8 +1,9 @@
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:telehealth_app/features/auth/services/auth_api.dart';
 
 class DoctorRegistrationProvider extends ChangeNotifier {
   // Controllers for text fields
@@ -10,7 +11,8 @@ class DoctorRegistrationProvider extends ChangeNotifier {
   final lastName = TextEditingController();
   final phone = TextEditingController();
   final practiceNumber = TextEditingController();
-  final age = TextEditingController();
+  final role = TextEditingController();
+  final dob = TextEditingController();
   final gender = TextEditingController();
   final location = TextEditingController();
   final specialization = TextEditingController();
@@ -32,10 +34,10 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     "Other",
   ];
 
-  // File variables
-  PlatformFile? certificateFile;
-  PlatformFile? idFrontFile;
-  PlatformFile? idBackFile;
+  // File variables (replaced with new requirements)
+  PlatformFile? idDocumentFile;
+  PlatformFile? practicingCertificateFile;
+  PlatformFile? educationalCertificateFile;
 
   bool isLoadingLocation = false;
 
@@ -73,22 +75,21 @@ class DoctorRegistrationProvider extends ChangeNotifier {
   Future<void> pickFile(String type) async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: type == "certificate" ? FileType.custom : FileType.image,
-        allowedExtensions:
-        type == "certificate" ? ["pdf", "jpg", "jpeg", "png"] : null,
+        type: FileType.custom,
+        allowedExtensions: ["pdf", "jpg", "jpeg", "png"],
       );
 
       if (result != null) {
         final file = result.files.single;
         switch (type) {
-          case "certificate":
-            certificateFile = file;
+          case "idDocument":
+            idDocumentFile = file;
             break;
-          case "idFront":
-            idFrontFile = file;
+          case "practicingCertificate":
+            practicingCertificateFile = file;
             break;
-          case "idBack":
-            idBackFile = file;
+          case "educationalCertificate":
+            educationalCertificateFile = file;
             break;
         }
         notifyListeners();
@@ -131,6 +132,35 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     }
   }
 
+  final AuthApi _authApi = AuthApi();
+
+  Future<void> submitRegistration(BuildContext context) async {
+    try {
+      final payload = <String, dynamic>{
+        'firstName': firstName.text.trim(),
+        'lastName': lastName.text.trim(),
+        'phone': phone.text.trim(),
+        'practiceNumber': practiceNumber.text.trim(),
+        'role': role.text.trim().isEmpty ? 'doctor' : role.text.trim(),
+        'dob': dob.text.trim(),
+        'gender': gender.text.trim(),
+        'location': location.text.trim(),
+        'specialization': specialization.text.trim(),
+        'experience': experience.text.trim(),
+        'availability': availability,
+        // Files can be sent as multipart later; placeholder fields
+      };
+      await _authApi.registerDoctor(payload: payload);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Doctor registration submitted.')),
+      );
+    } on NetworkExceptions catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    }
+  }
+
   @override
   void dispose() {
     pageController.dispose();
@@ -138,7 +168,8 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     lastName.dispose();
     phone.dispose();
     practiceNumber.dispose();
-    age.dispose();
+    dob.dispose();
+    role.dispose();
     gender.dispose();
     location.dispose();
     specialization.dispose();

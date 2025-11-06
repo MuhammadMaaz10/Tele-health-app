@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "441878211691",
+    "project_id": "tele-health-a0d35",
+    "storage_bucket": "tele-health-a0d35.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:441878211691:android:75f8cc83419d159526952e",
+        "android_client_info": {
+          "package_name": "com.example.telehealth_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9pO0gA5SFiEJNrrX3_bWBYzJbxhkhWNU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

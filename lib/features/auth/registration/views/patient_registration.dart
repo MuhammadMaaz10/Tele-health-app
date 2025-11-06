@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:telehealth_app/core/theme/app_colors.dart';
 import 'package:telehealth_app/core/utils/app_sizing.dart';
-import 'package:telehealth_app/features/auth/login/controller/login_controller.dart';
 import 'package:telehealth_app/shared_widgets/app_button.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/text_field.dart';
+import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
 import '../controller/patient_profile_provider.dart';
-
-
 class PatientRegistrationView extends StatelessWidget {
   const PatientRegistrationView({Key? key}) : super(key: key);
 
@@ -25,34 +23,54 @@ class _CompleteProfileBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<PatientProfileProvider>();
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Icon(Icons.arrow_back_outlined,
-                      color: AppColors.textColor, size: 24),
-                ),
-                kGap16,
-                CustomText(
-                  text: "Complete your profile",
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textColor,
-                ),
-                kGap8,
-                CustomText(
-                  text: "Fill in the details to continue",
-                  color: AppColors.hintColor,
-                ),
-                kGap30,
+    return ResponsiveAuthLayout(
+      title: 'Complete Your Profile',
+      description: 'Fill in your details to complete your profile and start using our telehealth services.',
+      showBackButton: true,
+      formContent: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CustomText(
+              text: "Complete your profile",
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textColor,
+            ),
+            kGap8,
+            CustomText(
+              text: "Fill in the details to continue",
+              color: AppColors.hintColor,
+            ),
+            kGap30,
 
+                // --- Profile Picture Upload ---
+                Center(
+                  child: GestureDetector(
+                    onTap: () => provider.pickProfileImage(context),
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundColor: AppColors.primary.withOpacity(0.1),
+                      backgroundImage: provider.profileImage != null
+                          ? FileImage(provider.profileImage!)
+                          : null,
+                      child: provider.profileImage == null
+                          ? const Icon(Icons.camera_alt_outlined,
+                          size: 30, color: Colors.grey)
+                          : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Center(
+                  child: CustomText(
+                    text: "Tap to upload profile picture (optional)",
+                    fontSize: 13,
+                    color: AppColors.hintColor,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
                 _field(context, "First Name", "firstName",
                     controller: provider.firstNameController),
                 _field(context, "Last Name", "lastName",
@@ -62,9 +80,6 @@ class _CompleteProfileBody extends StatelessWidget {
                     keyboardType: TextInputType.phone,
                     prefixIcon:
                     Icon(Icons.phone_outlined, color: AppColors.hintColor)),
-                _field(context, "Age", "age",
-                    controller: provider.ageController,
-                    keyboardType: TextInputType.number),
 
                 _field(
                   context,
@@ -98,6 +113,39 @@ class _CompleteProfileBody extends StatelessWidget {
 
                 _locationField(context, provider),
 
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => provider.pickIdDocument(context),
+                  child: Container(
+                    height: 120,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                    child: provider.idDocument != null
+                        ? Center(
+                      child: CustomText(
+                        text: "✅ ID Document Selected",
+                        color: AppColors.primary,
+                      ),
+                    )
+                        : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.upload_file_outlined,
+                            color: Colors.grey),
+                        const SizedBox(height: 6),
+                        CustomText(
+                          text: "Tap to upload file",
+                          color: AppColors.hintColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
                 kGap30,
                 CustomText(
                     text: "Next of Kin",
@@ -113,19 +161,25 @@ class _CompleteProfileBody extends StatelessWidget {
                     controller: provider.kinPhoneController,
                     keyboardType: TextInputType.phone),
 
-                kGap30,
-                CustomButton(
-                  text: "Complete Profile",
-                  onPressed: provider.isFormValid
-                      ? () => provider.handleSubmit(context)
-                      : null,
-                  backgroundColor: provider.isFormValid
-                      ? AppColors.primary
-                      : AppColors.primary.withOpacity(0.5),
+                // --- ID Upload (Optional) ---
+                const SizedBox(height: 16),
+                CustomText(
+                  text: "Upload ID Document (optional)",
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textColor,
                 ),
-              ],
+
+            kGap30,
+            CustomButton(
+              text: "Complete Profile",
+              onPressed: provider.isFormValid
+                  ? () => provider.handleSubmit(context)
+                  : null,
+              backgroundColor: provider.isFormValid
+                  ? AppColors.primary
+                  : AppColors.primary.withOpacity(0.5),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -162,9 +216,10 @@ class _CompleteProfileBody extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 8),
               child: CustomText(
-                  text: provider.errors[key]!,
-                  color: Colors.red,
-                  fontSize: 12),
+                text: provider.errors[key]!,
+                color: Colors.red,
+                fontSize: 12,
+              ),
             ),
         ],
       ),
