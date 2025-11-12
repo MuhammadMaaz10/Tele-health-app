@@ -2,30 +2,43 @@ import 'package:flutter/cupertino.dart';
 import 'package:telehealth_app/core/network/network_exceptions.dart';
 import 'package:telehealth_app/features/auth/services/auth_api.dart';
 
-class SignUpProvider extends ChangeNotifier{
-  final nameController = TextEditingController();
+class SignUpProvider extends ChangeNotifier {
   final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+  String? selectedRole; // 'Patient', 'Doctor', or 'Nurse'
   bool isLoading = false;
   String? error;
 
   final AuthApi _authApi = AuthApi();
 
-  Future<bool> signup({String? role}) async {
+  bool get isFormValid {
+    return emailController.text.trim().isNotEmpty && selectedRole != null;
+  }
+
+  void setRole(String role) {
+    selectedRole = role;
+    notifyListeners();
+  }
+
+  Future<Map<String, dynamic>?> checkUser() async {
+    if (!isFormValid) {
+      error = 'Please select a role and enter your email';
+      notifyListeners();
+      return null;
+    }
+
     isLoading = true;
     error = null;
     notifyListeners();
+    
     try {
-      await _authApi.signup(
-        name: nameController.text.trim(),
+      final response = await _authApi.checkUser(
         email: emailController.text.trim(),
-        password: passwordController.text,
-        role: role,
+        role: selectedRole!,
       );
-      return true;
+      return response;
     } on NetworkExceptions catch (e) {
       error = e.message;
-      return false;
+      return null;
     } finally {
       isLoading = false;
       notifyListeners();
@@ -34,9 +47,7 @@ class SignUpProvider extends ChangeNotifier{
 
   @override
   void dispose() {
-    nameController.dispose();
     emailController.dispose();
-    passwordController.dispose();
     super.dispose();
   }
 }

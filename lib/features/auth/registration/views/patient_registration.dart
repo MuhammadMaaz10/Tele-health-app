@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:telehealth_app/core/theme/app_colors.dart';
 import 'package:telehealth_app/core/utils/app_sizing.dart';
@@ -7,17 +8,27 @@ import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/text_field.dart';
 import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
 import '../controller/patient_profile_provider.dart';
+import '../../otp_verification/views/otp_view.dart';
+
 class PatientRegistrationView extends StatelessWidget {
-  const PatientRegistrationView({Key? key}) : super(key: key);
+  final String email;
+  
+  const PatientRegistrationView({Key? key, required this.email}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return const _CompleteProfileBody();
+    // Set email in provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PatientProfileProvider>().setEmail(email);
+    });
+    return _CompleteProfileBody(email: email);
   }
 }
 
 class _CompleteProfileBody extends StatelessWidget {
-  const _CompleteProfileBody({Key? key}) : super(key: key);
+  final String email;
+  
+  const _CompleteProfileBody({Key? key, required this.email}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -113,40 +124,7 @@ class _CompleteProfileBody extends StatelessWidget {
 
                 _locationField(context, provider),
 
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => provider.pickIdDocument(context),
-                  child: Container(
-                    height: 120,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                    ),
-                    child: provider.idDocument != null
-                        ? Center(
-                      child: CustomText(
-                        text: "✅ ID Document Selected",
-                        color: AppColors.primary,
-                      ),
-                    )
-                        : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.upload_file_outlined,
-                            color: Colors.grey),
-                        const SizedBox(height: 6),
-                        CustomText(
-                          text: "Tap to upload file",
-                          color: AppColors.hintColor,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                kGap30,
+                kGap20,
                 CustomText(
                     text: "Next of Kin",
                     fontWeight: FontWeight.w600,
@@ -168,14 +146,58 @@ class _CompleteProfileBody extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: AppColors.textColor,
                 ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () => provider.pickIdDocument(context),
+              child: Container(
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                ),
+                child: provider.idDocument != null
+                    ? Center(
+                  child: CustomText(
+                    text: "✅ ID Document Selected",
+                    color: AppColors.primary,
+                  ),
+                )
+                    : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.upload_file_outlined,
+                        color: Colors.grey),
+                    const SizedBox(height: 6),
+                    CustomText(
+                      text: "Tap to upload file",
+                      color: AppColors.hintColor,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
 
             kGap30,
             CustomButton(
               text: "Complete Profile",
-              onPressed: provider.isFormValid
-                  ? () => provider.handleSubmit(context)
+              isLoading: provider.isLoading,
+              onPressed: provider.isFormValid && !provider.isLoading
+                  ? () async {
+                      if (provider.handleSubmit(context)) {
+                        try {
+                          await provider.submitToApi(context);
+                          // Navigate to OTP verification
+                          Get.to(() => VerifyEmailView(email: email));
+                        } catch (e) {
+                          // Error already shown in submitToApi
+                        }
+                      }
+                    }
                   : null,
-              backgroundColor: provider.isFormValid
+              backgroundColor: provider.isFormValid && !provider.isLoading
                   ? AppColors.primary
                   : AppColors.primary.withOpacity(0.5),
             ),
@@ -203,6 +225,7 @@ class _CompleteProfileBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CustomTextField(
+            label: label,
             hintText: label,
             controller: controller,
             keyboardType: keyboardType,

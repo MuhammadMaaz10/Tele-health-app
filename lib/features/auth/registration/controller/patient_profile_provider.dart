@@ -24,6 +24,8 @@ class PatientProfileProvider extends ChangeNotifier {
   String? locationError;
   DateTime? selectedDate;
 
+  bool isLoading = false;
+
   File? profileImage;
   File? idDocument;
 
@@ -233,9 +235,18 @@ class PatientProfileProvider extends ChangeNotifier {
 
   final AuthApi _authApi = AuthApi();
 
+  String? email; // Email from signup
+
+  void setEmail(String email) {
+    this.email = email;
+  }
+
   Future<void> submitToApi(BuildContext context) async {
+    isLoading = true;
+    notifyListeners();
     try {
       final payload = <String, dynamic>{
+        'email': email ?? '',
         'firstName': firstNameController.text.trim(),
         'lastName': lastNameController.text.trim(),
         'phone': phoneController.text.trim(),
@@ -250,14 +261,14 @@ class PatientProfileProvider extends ChangeNotifier {
       };
 
       await _authApi.registerPatient(payload: payload);
-      // Show success
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Patient registered successfully.')),
-      );
     } on NetworkExceptions catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
+      rethrow;
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 

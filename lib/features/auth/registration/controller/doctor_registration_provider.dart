@@ -21,6 +21,8 @@ class DoctorRegistrationProvider extends ChangeNotifier {
   // Step/page controller
   final PageController pageController = PageController();
   int currentStep = 0;
+  String? email; // Email from signup
+  bool isLoading = false;
 
   // Specialization options
   final List<String> specializationOptions = [
@@ -134,9 +136,16 @@ class DoctorRegistrationProvider extends ChangeNotifier {
 
   final AuthApi _authApi = AuthApi();
 
+  void setEmail(String email) {
+    this.email = email;
+  }
+
   Future<void> submitRegistration(BuildContext context) async {
+    isLoading = true;
+    notifyListeners();
     try {
       final payload = <String, dynamic>{
+        'email': email ?? '',
         'firstName': firstName.text.trim(),
         'lastName': lastName.text.trim(),
         'phone': phone.text.trim(),
@@ -151,13 +160,14 @@ class DoctorRegistrationProvider extends ChangeNotifier {
         // Files can be sent as multipart later; placeholder fields
       };
       await _authApi.registerDoctor(payload: payload);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Doctor registration submitted.')),
-      );
     } on NetworkExceptions catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
+      rethrow;
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 

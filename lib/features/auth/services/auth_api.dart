@@ -6,20 +6,31 @@ import 'package:telehealth_app/core/utils/app_endpoints.dart';
 class AuthApi {
   final _client = ApiFactory.client;
 
-  Future<Map<String, dynamic>> login({required String email, required String password}) async {
+  Future<Map<String, dynamic>> login({required String email}) async {
     try {
       final Response response = await _client.post(
         AppEndpoints.login,
         data: {
           'email': email,
-          'password': password,
         },
       );
       final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      final String? token = data['token'] as String?;
-      if (token != null) {
-        ApiFactory.setAuthToken(token);
-      }
+      return data;
+    } on NetworkExceptions {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> checkUser({required String email, required String role}) async {
+    try {
+      final Response response = await _client.post(
+        AppEndpoints.checkUser,
+        data: {
+          'email': email,
+          'role': role,
+        },
+      );
+      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
       return data;
     } on NetworkExceptions {
       rethrow;
@@ -56,9 +67,18 @@ class AuthApi {
     }
   }
 
-  Future<void> verifyOtp({required String email, required String otp}) async {
+  Future<Map<String, dynamic>> verifyOtp({required String email, required String otp}) async {
     try {
-      await _client.post(AppEndpoints.verifyOtp, data: {'email': email, 'otp': otp});
+      final Response response = await _client.post(
+        AppEndpoints.verifyOtp,
+        data: {'email': email, 'otp': otp},
+      );
+      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
+      final String? token = data['token'] as String?;
+      if (token != null) {
+        ApiFactory.setAuthToken(token);
+      }
+      return data;
     } on NetworkExceptions {
       rethrow;
     }

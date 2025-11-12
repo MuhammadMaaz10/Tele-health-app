@@ -7,8 +7,8 @@ import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_sizing.dart';
 import '../../../../shared_widgets/text_field.dart';
-import '../../forgot_password/view/fotgot_password.dart';
 import '../../registration/views/sign_up_view.dart';
+import '../../otp_verification/views/otp_view.dart';
 import '../../../../shared_widgets/app_button.dart';
 
 class LoginView extends StatefulWidget {
@@ -17,9 +17,6 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
-
-  String selectedRole = 'User'; // Default login type
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -171,11 +168,8 @@ class _LoginViewState extends State<LoginView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Dynamic Login Title
         CustomText(
-          text: selectedRole == 'User'
-              ? 'Patient Login'
-              : '$selectedRole Login',
+          text: 'Login',
           fontSize: isTablet ? 28 : 22,
           fontWeight: FontWeight.w700,
           color: AppColors.textColor,
@@ -210,115 +204,34 @@ class _LoginViewState extends State<LoginView> {
             color: AppColors.hintColor,
             size: 20,
           ),
+          keyboardType: TextInputType.emailAddress,
         ),
-        kGap16,
-        CustomTextField(
-          label: 'Password',
-          hintText: 'Password',
-          controller: provider.passwordController,
-          obscureText: true,
-          prefixIcon: Icon(
-            Icons.lock_outline,
-            size: 20,
-            color: AppColors.hintColor,
+        
+        if (provider.error != null) ...[
+          kGap8,
+          CustomText(
+            text: provider.error!,
+            color: Colors.red,
+            fontSize: 12,
           ),
-        ),
-        kGap20,
+        ],
 
-        GestureDetector(
-          onTap: () {
-            Get.to(ForgotPasswordView());
-          },
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: CustomText(
-              text: 'Forget Password?',
-              fontWeight: FontWeight.w500,
-              color: AppColors.textColor,
-            ),
-          ),
-        ),
-
-        // Use fixed gap for all layouts (Spacer doesn't work well in scrollable views)
         kGap40,
 
-        // ✅ Dynamic Button Text (uses your CustomButton)
         CustomButton(
           isLoading: provider.isLoading,
-          text: 'Login',
+          text: 'Continue',
           onPressed: provider.isFormValid && !provider.isLoading
-              ? () {
-                  provider.login();
+              ? () async {
+                  final success = await provider.sendOtp();
+                  if (success) {
+                    Get.to(() => VerifyEmailView(email: provider.emailController.text.trim()));
+                  }
                 }
               : null,
           backgroundColor: provider.isFormValid && !provider.isLoading
               ? AppColors.primary
               : AppColors.primary.withOpacity(0.5),
-        ),
-
-        kGap20,
-
-        // ✅ Role Switcher Row
-        IntrinsicHeight(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CustomText(
-                text: 'or Login as? ',
-                color: AppColors.textColor,
-              ),
-
-              if (selectedRole != 'Doctor') ...[
-                GestureDetector(
-                  onTap: () => setState(() {
-                    selectedRole = 'Doctor';
-                  }),
-                  child: CustomText(
-                    text: 'Doctor',
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
-                ),
-                if (selectedRole != 'Nurse')
-                  VerticalDivider(
-                    color: AppColors.black,
-                    thickness: 1,
-                    width: 16,
-                  ),
-              ],
-
-              if (selectedRole != 'Nurse')
-                GestureDetector(
-                  onTap: () => setState(() {
-                    selectedRole = 'Nurse';
-                  }),
-                  child: CustomText(
-                    text: 'Nurse',
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
-                ),
-
-              if (selectedRole != 'User')
-                VerticalDivider(
-                  color: AppColors.black,
-                  thickness: 1,
-                  width: 16,
-                ),
-
-              if (selectedRole != 'User')
-                GestureDetector(
-                  onTap: () => setState(() {
-                    selectedRole = 'User';
-                  }),
-                  child: CustomText(
-                    text: 'User',
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
-                ),
-            ],
-          ),
         ),
       ],
     );
