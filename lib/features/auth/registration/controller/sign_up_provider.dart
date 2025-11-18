@@ -31,9 +31,10 @@ class SignUpProvider extends ChangeNotifier {
     notifyListeners();
     
     try {
+      // Send role in uppercase to API
       final response = await _authApi.checkUser(
         email: emailController.text.trim(),
-        role: selectedRole!,
+        role: selectedRole!.toUpperCase(),
       );
       return response;
     } on NetworkExceptions catch (e) {

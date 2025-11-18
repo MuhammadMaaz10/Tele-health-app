@@ -12,23 +12,27 @@ import '../../otp_verification/views/otp_view.dart';
 
 class PatientRegistrationView extends StatelessWidget {
   final String email;
+  final String role;
   
-  const PatientRegistrationView({Key? key, required this.email}) : super(key: key);
+  const PatientRegistrationView({Key? key, required this.email, required this.role}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Set email in provider
+    // Set email and role in provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PatientProfileProvider>().setEmail(email);
+      final provider = context.read<PatientProfileProvider>();
+      provider.setEmail(email);
+      provider.setRole(role);
     });
-    return _CompleteProfileBody(email: email);
+    return _CompleteProfileBody(email: email, role: role);
   }
 }
 
 class _CompleteProfileBody extends StatelessWidget {
   final String email;
+  final String role;
   
-  const _CompleteProfileBody({Key? key, required this.email}) : super(key: key);
+  const _CompleteProfileBody({Key? key, required this.email, required this.role}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -61,15 +65,17 @@ class _CompleteProfileBody extends StatelessWidget {
                     onTap: () => provider.pickProfileImage(context),
                     child: CircleAvatar(
                       radius: 50,
-                      backgroundColor: AppColors.primary.withOpacity(0.1),
+                      backgroundColor: Colors.grey[300],
                       backgroundImage: provider.profileImage != null
                           ? FileImage(provider.profileImage!)
+                          : provider.profileImageBytes != null
+                          ? MemoryImage(provider.profileImageBytes!)
                           : null,
-                      child: provider.profileImage == null
-                          ? const Icon(Icons.camera_alt_outlined,
-                          size: 30, color: Colors.grey)
+                      child: provider.profileImage == null && provider.profileImageBytes == null
+                          ? Icon(Icons.camera_alt_outlined, size: 30, color: Colors.grey)
                           : null,
                     ),
+
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -124,23 +130,8 @@ class _CompleteProfileBody extends StatelessWidget {
 
                 _locationField(context, provider),
 
-                kGap20,
-                CustomText(
-                    text: "Next of Kin",
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textColor),
-                kGap16,
+                // kGap20,
 
-                _field(context, "Name", "kinName",
-                    controller: provider.kinNameController),
-                _field(context, "Surname", "kinSurname",
-                    controller: provider.kinSurnameController),
-                _field(context, "Phone Number", "kinPhone",
-                    controller: provider.kinPhoneController,
-                    keyboardType: TextInputType.phone),
-
-                // --- ID Upload (Optional) ---
-                const SizedBox(height: 16),
                 CustomText(
                   text: "Upload ID Document (optional)",
                   fontWeight: FontWeight.w600,
@@ -157,7 +148,7 @@ class _CompleteProfileBody extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                 ),
-                child: provider.idDocument != null
+                child: provider.idDocument != null || provider.idDocumentBytes != null
                     ? Center(
                   child: CustomText(
                     text: "✅ ID Document Selected",
@@ -167,15 +158,12 @@ class _CompleteProfileBody extends StatelessWidget {
                     : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.upload_file_outlined,
-                        color: Colors.grey),
-                    const SizedBox(height: 6),
-                    CustomText(
-                      text: "Tap to upload file",
-                      color: AppColors.hintColor,
-                    ),
+                    Icon(Icons.upload_file_outlined, color: Colors.grey),
+                    SizedBox(height: 6),
+                    CustomText(text: "Tap to upload file", color: AppColors.hintColor),
                   ],
                 ),
+
               ),
             ),
 
@@ -189,8 +177,8 @@ class _CompleteProfileBody extends StatelessWidget {
                       if (provider.handleSubmit(context)) {
                         try {
                           await provider.submitToApi(context);
-                          // Navigate to OTP verification
-                          Get.to(() => VerifyEmailView(email: email));
+                          // Navigate to OTP verification for registration
+                          Get.to(() => VerifyEmailView(email: email, isRegistration: true));
                         } catch (e) {
                           // Error already shown in submitToApi
                         }
@@ -272,7 +260,9 @@ class _CompleteProfileBody extends StatelessWidget {
                 : IconButton(
               icon: Icon(Icons.my_location_outlined,
                   color: AppColors.primary, size: 20),
-              onPressed: provider.getCurrentLocation,
+              onPressed: ()async{
+               await provider.getCurrentLocation();
+              },
             ),
             onChanged: (v) => provider.validateField("location", v),
           ),

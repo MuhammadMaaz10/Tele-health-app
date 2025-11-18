@@ -16,8 +16,9 @@ import '../../otp_verification/views/otp_view.dart';
 
 class DoctorRegistrationView extends StatelessWidget {
   final String email;
+  final String role;
   
-  const DoctorRegistrationView({Key? key, required this.email}) : super(key: key);
+  const DoctorRegistrationView({Key? key, required this.email, required this.role}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +26,7 @@ class DoctorRegistrationView extends StatelessWidget {
       create: (_) {
         final provider = DoctorRegistrationProvider();
         provider.setEmail(email);
+        provider.setRole(role);
         return provider;
       },
       child: Consumer<DoctorRegistrationProvider>(
@@ -44,7 +46,7 @@ class DoctorRegistrationView extends StatelessWidget {
                         ),
                         const Spacer(),
                         CustomText(
-                          text: "${provider.currentStep + 1}/4",
+                          text: "${provider.currentStep + 1}/3",
                           color: AppColors.hintColor,
                         ),
                       ],
@@ -55,10 +57,9 @@ class DoctorRegistrationView extends StatelessWidget {
                         controller: provider.pageController,
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
-                          const BasicInfoStep(),
+                          // const BasicInfoStep(),
                           const ProfessionalDetailsStep(),
-                          AvailabilityStep(),
-                          PendingApprovalStep(email: email),
+                          PendingApprovalStep(email: email, role: role),
                         ],
                       ),
                     ),

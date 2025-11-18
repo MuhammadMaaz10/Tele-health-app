@@ -9,8 +9,9 @@ import '../otp_verification/views/otp_view.dart';
 
 class PendingApprovalStep extends StatelessWidget {
   final String email;
+  final String role;
   
-  const PendingApprovalStep({Key? key, required this.email}) : super(key: key);
+  const PendingApprovalStep({Key? key, required this.email, required this.role}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -47,8 +48,8 @@ class PendingApprovalStep extends StatelessWidget {
                   : () async {
                       try {
                         await provider.submitRegistration(context);
-                        // Navigate to OTP verification
-                        Get.to(() => VerifyEmailView(email: email));
+                        // Navigate to OTP verification for registration
+                        Get.to(() => VerifyEmailView(email: email, isRegistration: true));
                       } catch (e) {
                         // Error already shown in submitRegistration
                       }

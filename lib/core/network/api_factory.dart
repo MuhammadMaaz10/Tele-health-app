@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:telehealth_app/core/network/dio_client.dart';
 import 'package:telehealth_app/core/utils/app_endpoints.dart';
 
@@ -7,6 +8,8 @@ class ApiFactory {
   static final ApiClient _client = ApiClient(baseUrl: AppEndpoints.baseUrl);
 
   static ApiClient get client => _client;
+  
+  static Dio get dio => _client.dio;
 
   static void setAuthToken(String? token) {
     _client.setAuthToken(token);

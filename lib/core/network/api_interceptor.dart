@@ -26,6 +26,13 @@ class ApiInterceptor extends Interceptor {
     log("Status => ${err.response?.statusCode}");
     log("Error => ${err.response?.data}");
     log("Message => ${err.message}");
+    
+    // Log response body for debugging
+    if (err.response != null) {
+      log("Response Data => ${err.response?.data}");
+      log("Response Headers => ${err.response?.headers}");
+    }
+    
     try {
       final message = NetworkExceptions.handleResponse(err).message;
       SnackbarService.showError(message);

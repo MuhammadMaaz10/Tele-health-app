@@ -10,7 +10,7 @@ import '../../../../shared_widgets/text_field.dart';
 import '../../../../shared_widgets/responsive_auth_layout.dart';
 import '../controller/sign_up_provider.dart';
 import '../../registration/views/patient_registration.dart';
-import '../../registration/views/doctor_registration.dart';
+import '../../registration/views/doctor_registration_new.dart';
 import '../../otp_verification/views/otp_view.dart';
 
 class CreateAccountView extends StatelessWidget {
@@ -65,7 +65,7 @@ class CreateAccountView extends StatelessWidget {
                     child: _buildRoleOption(
                       context,
                       provider,
-                      'Patient',
+                      'PATIENT',
                       Icons.person_outline,
                     ),
                   ),
@@ -74,7 +74,7 @@ class CreateAccountView extends StatelessWidget {
                     child: _buildRoleOption(
                       context,
                       provider,
-                      'Doctor',
+                      'DOCTOR',
                       Icons.medical_services_outlined,
                     ),
                   ),
@@ -83,7 +83,7 @@ class CreateAccountView extends StatelessWidget {
                     child: _buildRoleOption(
                       context,
                       provider,
-                      'Nurse',
+                      'NURSE',
                       Icons.local_hospital_outlined,
                     ),
                   ),
@@ -182,15 +182,21 @@ class CreateAccountView extends StatelessWidget {
       return;
     }
 
-    // Check if user already exists (backend will return a message)
+    // Check if user already exists - handle different response structures
     final message = response['message'] as String?;
-    final userExists = response['exists'] as bool? ?? false;
+    final userExists = response['exists'] as bool? ?? 
+                      (response['userExists'] as bool?) ?? 
+                      false;
+    
+    // Also check for error messages in response
+    final error = response['error'] as String?;
+    final status = response['status'] as String?;
 
-    if (userExists) {
+    if (userExists || status == 'error' || error != null) {
       // Show message from backend
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message ?? 'User already registered'),
+          content: Text(message ?? error ?? 'User already registered'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -198,13 +204,13 @@ class CreateAccountView extends StatelessWidget {
     }
 
     // User doesn't exist, navigate to registration screen
-    final role = provider.selectedRole!;
-    final email = provider.emailController.text.trim();
-    if (role == 'Patient') {
-      Get.to(() => PatientRegistrationView(email: email));
+    final role = provider.selectedRole!.toUpperCase(); // Convert to uppercase
+    final email = provider.emailController.text.trim(); // Keep email in original case
+    if (role == 'PATIENT') {
+      Get.to(() => PatientRegistrationView(email: email, role: role));
     } else {
       // Doctor or Nurse
-      Get.to(() => DoctorRegistrationView(email: email));
+      Get.to(() => DoctorRegistrationViewNew(email: email, role: role));
     }
   }
 }

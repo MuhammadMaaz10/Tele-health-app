@@ -1,60 +1,54 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:telehealth_app/core/utils/app_endpoints.dart';
 import 'package:telehealth_app/features/auth/services/auth_api.dart';
+import 'package:dio/dio.dart';
 
 class DoctorRegistrationProvider extends ChangeNotifier {
   // Controllers for text fields
-  final firstName = TextEditingController();
-  final lastName = TextEditingController();
+  final username = TextEditingController();
   final phone = TextEditingController();
-  final practiceNumber = TextEditingController();
-  final role = TextEditingController();
   final dob = TextEditingController();
   final gender = TextEditingController();
-  final location = TextEditingController();
   final specialization = TextEditingController();
-  final experience = TextEditingController();
+  final password = TextEditingController();
 
   // Step/page controller
   final PageController pageController = PageController();
   int currentStep = 0;
-  String? email; // Email from signup
+  String? email; // Email from signup (original case)
+  String? role; // Role from signup (uppercase: DOCTOR or NURSE)
   bool isLoading = false;
 
-  // Specialization options
+  // Location coordinates (for API)
+  double? latitude;
+  double? longitude;
+
+  // Specialization options - updated to match API values
   final List<String> specializationOptions = [
-    "General Physician",
-    "Cardiologist",
-    "Dentist",
-    "Dermatologist",
-    "Neurologist",
-    "Orthopedic",
-    "Psychiatrist",
-    "Other",
+    "PSYCHOLOGY",
+    "CARDIOLOGY",
+    "DERMATOLOGY",
+    "NEUROLOGY",
+    "ORTHOPEDICS",
+    "PSYCHIATRY",
+    "GENERAL",
+    "OTHER",
   ];
 
   // File variables (replaced with new requirements)
+  File? profileImage;
   PlatformFile? idDocumentFile;
   PlatformFile? practicingCertificateFile;
   PlatformFile? educationalCertificateFile;
 
   bool isLoadingLocation = false;
-
-  // Availability
-  Map<String, Map<String, TimeOfDay?>> availability = {
-    "Monday": {"start": null, "end": null},
-    "Tuesday": {"start": null, "end": null},
-    "Wednesday": {"start": null, "end": null},
-    "Thursday": {"start": null, "end": null},
-    "Friday": {"start": null, "end": null},
-    "Saturday": {"start": null, "end": null},
-    "Sunday": {"start": null, "end": null},
-  };
-
-  List<String> selectedDays = [];
+  Uint8List? profileImageBytes;
 
   // 📍 Location
   Future<void> getCurrentLocation() async {
@@ -62,9 +56,38 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final position = await Geolocator.getCurrentPosition();
-      location.text =
-      "Lat: ${position.latitude.toStringAsFixed(4)}, Lng: ${position.longitude.toStringAsFixed(4)}";
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        isLoadingLocation = false;
+        notifyListeners();
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          isLoadingLocation = false;
+          notifyListeners();
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        isLoadingLocation = false;
+        notifyListeners();
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Store coordinates for API
+      latitude = position.latitude;
+      longitude = position.longitude;
+
+      // Location coordinates are stored, no need to display address
     } catch (e) {
       debugPrint("Error getting location: $e");
     }
@@ -72,6 +95,23 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     isLoadingLocation = false;
     notifyListeners();
   }
+
+  Future<void> pickProfileImage(BuildContext context) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+
+    if (picked != null) {
+      if (kIsWeb) {
+        profileImageBytes = await picked.readAsBytes();
+        profileImage = null; // Only bytes on web
+      } else {
+        profileImage = File(picked.path);
+        profileImageBytes = null;
+      }
+      notifyListeners();
+    }
+  }
+
 
   // 📁 File Picker (works on all platforms)
   Future<void> pickFile(String type) async {
@@ -95,15 +135,16 @@ class DoctorRegistrationProvider extends ChangeNotifier {
             break;
         }
         notifyListeners();
+        notifyFormChange(); // Notify to update button state
       }
     } catch (e) {
       debugPrint("Error picking file: $e");
     }
   }
 
-  // 🧭 Page Navigation
+  // 🧭 Page Navigation (3 steps now: BasicInfo, ProfessionalDetails, PendingApproval)
   void nextStep() {
-    if (currentStep < 3) {
+    if (currentStep < 2) {
       currentStep++;
       pageController.animateToPage(
         currentStep,
@@ -127,7 +168,7 @@ class DoctorRegistrationProvider extends ChangeNotifier {
   }
 
   void goToStep(int step) {
-    if (step >= 0 && step <= 3) {
+    if (step >= 0 && step <= 2) {
       currentStep = step;
       pageController.jumpToPage(step);
       notifyListeners();
@@ -140,26 +181,155 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     this.email = email;
   }
 
+  void setRole(String role) {
+    this.role = role;
+  }
+
+  // Check if form is valid
+  bool get isFormValid {
+    return username.text.isNotEmpty &&
+        phone.text.isNotEmpty &&
+        dob.text.isNotEmpty &&
+        gender.text.isNotEmpty
+    &&
+        specialization.text.isNotEmpty &&
+        // password.text.isNotEmpty &&
+        idDocumentFile != null &&
+        practicingCertificateFile != null &&
+        educationalCertificateFile != null
+    &&
+        latitude != null &&
+        longitude != null;
+  }
+
+  // Method to notify listeners when form fields change
+  void notifyFormChange() {
+    notifyListeners();
+  }
+
   Future<void> submitRegistration(BuildContext context) async {
     isLoading = true;
     notifyListeners();
+
     try {
-      final payload = <String, dynamic>{
-        'email': email ?? '',
-        'firstName': firstName.text.trim(),
-        'lastName': lastName.text.trim(),
-        'phone': phone.text.trim(),
-        'practiceNumber': practiceNumber.text.trim(),
-        'role': role.text.trim().isEmpty ? 'doctor' : role.text.trim(),
-        'dob': dob.text.trim(),
-        'gender': gender.text.trim(),
-        'location': location.text.trim(),
-        'specialization': specialization.text.trim(),
-        'experience': experience.text.trim(),
-        'availability': availability,
-        // Files can be sent as multipart later; placeholder fields
-      };
-      await _authApi.registerDoctor(payload: payload);
+      final formData = FormData();
+
+      // ----------------------------------------------------
+      // TEXT FIELDS
+      // ----------------------------------------------------
+      formData.fields.addAll([
+        MapEntry('email', email ?? ''),
+        MapEntry('role', role ?? ''),
+        MapEntry('username', username.text.trim()),
+        MapEntry('phone', phone.text.trim()),
+        MapEntry('gender', gender.text.trim()),
+        MapEntry('dateOfBirth', dob.text.trim()),
+        MapEntry('specialization', specialization.text.trim()),
+        MapEntry('password', "password.text.trim()"),
+      ]);
+
+      // ----------------------------------------------------
+      // PROFILE IMAGE (WEB + MOBILE)
+      // ----------------------------------------------------
+      if (kIsWeb) {
+        if (profileImageBytes != null) {
+          formData.files.add(
+            MapEntry(
+              'profilePicture',
+              MultipartFile.fromBytes(
+                profileImageBytes!,
+                filename: "profile.png",
+              ),
+            ),
+          );
+        }
+      } else {
+        if (profileImage != null) {
+          formData.files.add(
+            MapEntry(
+              'profilePicture',
+              await MultipartFile.fromFile(
+                profileImage!.path,
+                filename: profileImage!.path.split(Platform.pathSeparator).last,
+              ),
+            ),
+          );
+        }
+      }
+
+      // ----------------------------------------------------
+      // DOCUMENT HANDLER (works for WEB + MOBILE)
+      // ----------------------------------------------------
+      Future<void> addFile(String key, PlatformFile? file) async {
+        if (file == null) return;
+
+        if (kIsWeb) {
+          formData.files.add(
+            MapEntry(
+              key,
+              MultipartFile.fromBytes(
+                file.bytes!,
+                filename: file.name,
+              ),
+            ),
+          );
+        } else {
+          formData.files.add(
+            MapEntry(
+              key,
+              await MultipartFile.fromFile(
+                file.path!,
+                filename: file.name,
+              ),
+            ),
+          );
+        }
+      }
+
+      await addFile("idDocument", idDocumentFile);
+      await addFile("medicalCertificate", practicingCertificateFile);
+      await addFile("educationalCertificate", educationalCertificateFile);
+
+      // ----------------------------------------------------
+      // VALIDATION
+      // ----------------------------------------------------
+      if (idDocumentFile == null) throw Exception("ID Document is required");
+      if (practicingCertificateFile == null) throw Exception("Medical Certificate is required");
+      if (educationalCertificateFile == null) throw Exception("Educational Certificate is required");
+
+      if (latitude == null || longitude == null) {
+        throw Exception("Location is required. Please get your current location.");
+      }
+
+      // ----------------------------------------------------
+      // DEBUG PRINT
+      // ----------------------------------------------------
+      debugPrint("===== API REQUEST BODY =====");
+      debugPrint("Endpoint: ${role == 'NURSE' ? AppEndpoints.registerNurse : AppEndpoints.registerDoctor}");
+      debugPrint("Location: $latitude , $longitude");
+      debugPrint("Fields:");
+      for (var f in formData.fields) debugPrint("  ${f.key}: ${f.value}");
+      debugPrint("Files:");
+      for (var f in formData.files) debugPrint("  ${f.key}: ${f.value.filename}");
+      debugPrint("=============================");
+
+      // ----------------------------------------------------
+      // SEND REQUEST
+      // ----------------------------------------------------
+      if (role == 'NURSE') {
+        await _authApi.registerNurse(
+          formData: formData,
+          latitude: latitude,
+          longitude: longitude,
+        );
+      } else {
+        await _authApi.registerDoctor(
+          formData: formData,
+          latitude: latitude,
+          longitude: longitude,
+        );
+      }
+
     } on NetworkExceptions catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
@@ -171,19 +341,16 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     }
   }
 
+
   @override
   void dispose() {
     pageController.dispose();
-    firstName.dispose();
-    lastName.dispose();
+    username.dispose();
     phone.dispose();
-    practiceNumber.dispose();
     dob.dispose();
-    role.dispose();
     gender.dispose();
-    location.dispose();
     specialization.dispose();
-    experience.dispose();
+    password.dispose();
     super.dispose();
   }
 }

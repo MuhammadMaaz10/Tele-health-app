@@ -63,7 +63,7 @@ class ProfessionalDetailsStep extends StatelessWidget {
           const SizedBox(height: 16),
           CustomTextField(
             hintText: "Years of Experience",
-            controller: provider.experience,
+            // controller: provider.experience,
             keyboardType: TextInputType.number,
           ),
 

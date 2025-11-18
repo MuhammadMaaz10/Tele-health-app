@@ -6,6 +6,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class PatientProfileProvider extends ChangeNotifier {
   final firstNameController = TextEditingController();
@@ -14,10 +16,7 @@ class PatientProfileProvider extends ChangeNotifier {
   final genderController = TextEditingController();
   final dobController = TextEditingController();
   final locationController = TextEditingController();
-  final kinNameController = TextEditingController();
-  final kinSurnameController = TextEditingController();
-  final kinPhoneController = TextEditingController();
-
+  //
   final Map<String, String?> errors = {};
 
   bool isLoadingLocation = false;
@@ -28,6 +27,13 @@ class PatientProfileProvider extends ChangeNotifier {
 
   File? profileImage;
   File? idDocument;
+
+  Uint8List? profileImageBytes;   // for WEB
+  Uint8List? idDocumentBytes;
+
+  // Location coordinates (for API)
+  double? latitude;
+  double? longitude;
 
   // ---------------------------------------------------------
   // VALIDATION
@@ -63,9 +69,6 @@ class PatientProfileProvider extends ChangeNotifier {
       genderController.text,
       dobController.text,
       locationController.text,
-      kinNameController.text,
-      kinSurnameController.text,
-      kinPhoneController.text,
     ].every((v) => v.trim().isNotEmpty);
   }
 
@@ -77,9 +80,6 @@ class PatientProfileProvider extends ChangeNotifier {
       "gender",
       "dob",
       "location",
-      "kinName",
-      "kinSurname",
-      "kinPhone"
     ]) {
       validateField(key, getControllerValue(key));
     }
@@ -99,12 +99,6 @@ class PatientProfileProvider extends ChangeNotifier {
         return dobController.text;
       case "location":
         return locationController.text;
-      case "kinName":
-        return kinNameController.text;
-      case "kinSurname":
-        return kinSurnameController.text;
-      case "kinPhone":
-        return kinPhoneController.text;
       default:
         return '';
     }
@@ -116,8 +110,15 @@ class PatientProfileProvider extends ChangeNotifier {
   Future<void> pickProfileImage(BuildContext context) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
+
     if (picked != null) {
-      profileImage = File(picked.path);
+      if (kIsWeb) {
+        profileImageBytes = await picked.readAsBytes();
+        profileImage = null;
+      } else {
+        profileImage = File(picked.path);
+        profileImageBytes = null;
+      }
       notifyListeners();
     }
   }
@@ -127,11 +128,23 @@ class PatientProfileProvider extends ChangeNotifier {
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
     );
-    if (result != null && result.files.single.path != null) {
-      idDocument = File(result.files.single.path!);
+
+    if (result != null) {
+      final file = result.files.single;
+
+      if (kIsWeb) {
+        idDocumentBytes = file.bytes;
+        idDocument = null;
+      } else {
+        if (file.path != null) {
+          idDocument = File(file.path!);
+          idDocumentBytes = null;
+        }
+      }
       notifyListeners();
     }
   }
+
 
   // ---------------------------------------------------------
   // LOCATION LOGIC
@@ -142,55 +155,85 @@ class PatientProfileProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        isLoadingLocation = false;
-        locationError = "Location services are disabled.";
-        notifyListeners();
-        return;
+      // --------- WEB-SPECIFIC CHECKS ----------
+      if (kIsWeb) {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          locationError = "Location services are disabled on your browser.";
+          isLoadingLocation = false;
+          notifyListeners();
+          return;
+        }
       }
 
+      // --------- PERMISSIONS ----------
       LocationPermission permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          isLoadingLocation = false;
           locationError = "Location permission denied.";
+          isLoadingLocation = false;
           notifyListeners();
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        isLoadingLocation = false;
         locationError =
-        "Location permissions are permanently denied. Please enable them in app settings.";
+        "Location permission permanently denied. Enable it in browser/app settings.";
+        isLoadingLocation = false;
         notifyListeners();
         return;
       }
 
+      // --------- GET COORDINATES ----------
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy: LocationAccuracy.low,
+        forceAndroidLocationManager: false,
       );
 
-      List<Placemark> placemarks =
-      await placemarkFromCoordinates(position.latitude, position.longitude);
+      latitude = position.latitude;
+      longitude = position.longitude;
 
-      if (placemarks.isNotEmpty) {
-        Placemark place = placemarks.first;
-        String address = _formatAddress(place);
-        locationController.text = address;
+      // --------- TRY REVERSE GEOCODING (MAY FAIL ON WEB) ----------
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          locationController.text = _formatAddress(p);
+        } else {
+          locationController.text =
+          "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+        }
+
         errors["location"] = null;
-      } else {
-        locationError = "Could not determine address.";
+      } catch (geoError) {
+        // If reverse geocoding fails (COMMON ON WEB)
+        locationController.text =
+        "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+        errors["location"] = null;
       }
     } catch (e) {
-      locationError = "Failed to get location: ${e.toString()}";
+      // --------- ANY ERROR HERE IS WEB MOSTLY ----------
+      print("GEO ERROR: $e");
+
+      if (kIsWeb) {
+        locationError =
+        "Browser blocked location or running without HTTPS.\nError: ${e.toString()}";
+      } else {
+        locationError = "Failed to get location: ${e.toString()}";
+      }
     }
 
     isLoadingLocation = false;
     notifyListeners();
   }
+
 
   String _formatAddress(Placemark place) {
     List<String> addressParts = [];
@@ -214,7 +257,8 @@ class PatientProfileProvider extends ChangeNotifier {
     );
     if (picked != null) {
       selectedDate = picked;
-      dobController.text = "${picked.day}/${picked.month}/${picked.year}";
+      // Format: dd-MM-yyyy (e.g., 22-01-1999)
+      dobController.text = "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
       errors["dob"] = null;
       notifyListeners();
     }
@@ -235,32 +279,96 @@ class PatientProfileProvider extends ChangeNotifier {
 
   final AuthApi _authApi = AuthApi();
 
-  String? email; // Email from signup
+  String? email; // Email from signup (original case)
+  String? role; // Role from signup (uppercase: PATIENT)
 
   void setEmail(String email) {
     this.email = email;
+  }
+  
+  void setRole(String role) {
+    this.role = role;
   }
 
   Future<void> submitToApi(BuildContext context) async {
     isLoading = true;
     notifyListeners();
-    try {
-      final payload = <String, dynamic>{
-        'email': email ?? '',
-        'firstName': firstNameController.text.trim(),
-        'lastName': lastNameController.text.trim(),
-        'phone': phoneController.text.trim(),
-        'gender': genderController.text.trim(),
-        'dob': dobController.text.trim(),
-        'location': locationController.text.trim(),
-        'kin': {
-          'name': kinNameController.text.trim(),
-          'surname': kinSurnameController.text.trim(),
-          'phone': kinPhoneController.text.trim(),
-        },
-      };
 
-      await _authApi.registerPatient(payload: payload);
+    try {
+      final formData = FormData();
+
+      // -----------------------------
+      // TEXT FIELDS
+      // -----------------------------
+      formData.fields.addAll([
+        MapEntry('email', email ?? ''),
+        MapEntry('role', role ?? ''),
+        MapEntry('username', firstNameController.text.trim()),
+        MapEntry('phone', phoneController.text.trim()),
+        MapEntry('gender', genderController.text.trim().toLowerCase()),
+        MapEntry('dateOfBirth', dobController.text.trim()),
+        MapEntry('password', 'empty'),
+      ]);
+
+      // -----------------------------
+      // PROFILE IMAGE (WEB + MOBILE)
+      // -----------------------------
+      if (kIsWeb && profileImageBytes != null) {
+        formData.files.add(
+          MapEntry(
+            'profilePicture',
+            MultipartFile.fromBytes(
+              profileImageBytes!,
+              filename: "profile.png",
+            ),
+          ),
+        );
+      } else if (!kIsWeb && profileImage != null) {
+        formData.files.add(
+          MapEntry(
+            'profilePicture',
+            await MultipartFile.fromFile(
+              profileImage!.path,
+              filename: profileImage!.path.split('/').last,
+            ),
+          ),
+        );
+      }
+
+      // -----------------------------
+      // ID DOCUMENT (WEB + MOBILE)
+      // -----------------------------
+      if (kIsWeb && idDocumentBytes != null) {
+        formData.files.add(
+          MapEntry(
+            'idDocument',
+            MultipartFile.fromBytes(
+              idDocumentBytes!,
+              filename: "id_document",
+            ),
+          ),
+        );
+      } else if (!kIsWeb && idDocument != null) {
+        formData.files.add(
+          MapEntry(
+            'idDocument',
+            await MultipartFile.fromFile(
+              idDocument!.path,
+              filename: idDocument!.path.split('/').last,
+            ),
+          ),
+        );
+      }
+
+      // -----------------------------
+      // SEND API
+      // -----------------------------
+      await _authApi.registerPatient(
+        formData: formData,
+        latitude: latitude,
+        longitude: longitude,
+      );
+
     } on NetworkExceptions catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
@@ -272,6 +380,7 @@ class PatientProfileProvider extends ChangeNotifier {
     }
   }
 
+
   // ---------------------------------------------------------
   // CLEANUP
   // ---------------------------------------------------------
@@ -282,8 +391,5 @@ class PatientProfileProvider extends ChangeNotifier {
     genderController.dispose();
     dobController.dispose();
     locationController.dispose();
-    kinNameController.dispose();
-    kinSurnameController.dispose();
-    kinPhoneController.dispose();
   }
 }

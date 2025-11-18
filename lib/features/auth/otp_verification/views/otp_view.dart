@@ -13,8 +13,9 @@ import '../../../../shared_widgets/otp_text_field.dart';
 
 class VerifyEmailView extends StatefulWidget {
   final String email;
+  final bool isRegistration; // To determine which OTP verification endpoint to use
   
-  const VerifyEmailView({Key? key, required this.email}) : super(key: key);
+  const VerifyEmailView({Key? key, required this.email, this.isRegistration = false}) : super(key: key);
 
   @override
   State<VerifyEmailView> createState() => _VerifyEmailViewState();
@@ -28,6 +29,7 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
 
   bool _isButtonEnabled = false;
   bool _isLoading = false;
+  bool _isResending = false;
   String? _error;
 
   // Check if all fields are filled
@@ -50,7 +52,11 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
     });
 
     try {
-      await _authApi.verifyOtp(email: widget.email, otp: otp);
+      if (widget.isRegistration) {
+        await _authApi.verifyRegisterOtp(email: widget.email, otp: otp);
+      } else {
+        await _authApi.verifyLoginOtp(email: widget.email, otp: otp);
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -146,14 +152,43 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
                 fontSize: 14,
               ),
               GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("OTP Resent Successfully")),
-                  );
+                onTap: _isResending ? null : () async {
+                  setState(() {
+                    _isResending = true;
+                    _error = null;
+                  });
+                  
+                  try {
+                    await _authApi.login(email: widget.email);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("OTP Resent Successfully")),
+                      );
+                    }
+                  } on NetworkExceptions catch (e) {
+                    setState(() {
+                      _error = e.message;
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.message)),
+                      );
+                    }
+                  } catch (e) {
+                    setState(() {
+                      _error = 'Failed to resend OTP. Please try again.';
+                    });
+                  } finally {
+                    if (mounted) {
+                      setState(() {
+                        _isResending = false;
+                      });
+                    }
+                  }
                 },
                 child: CustomText(
-                  text: " Resend",
-                  color: AppColors.primary,
+                  text: _isResending ? " Resending..." : " Resend",
+                  color: _isResending ? AppColors.hintColor : AppColors.primary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
