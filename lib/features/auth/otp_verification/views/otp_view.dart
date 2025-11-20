@@ -14,7 +14,7 @@ import '../../../../shared_widgets/otp_text_field.dart';
 class VerifyEmailView extends StatefulWidget {
   final String email;
   final bool isRegistration; // To determine which OTP verification endpoint to use
-  
+
   const VerifyEmailView({Key? key, required this.email, this.isRegistration = false}) : super(key: key);
 
   @override
@@ -57,7 +57,7 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
       } else {
         await _authApi.verifyLoginOtp(email: widget.email, otp: otp);
       }
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("OTP Verified Successfully ✅")),
@@ -157,9 +157,16 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
                     _isResending = true;
                     _error = null;
                   });
-                  
+
                   try {
-                    await _authApi.login(email: widget.email);
+                    if (widget.isRegistration) {
+                      // Resend registration OTP
+                      await _authApi.resendOtp(email: widget.email);
+                    } else {
+                      // Resend login OTP
+                      await _authApi.login(email: widget.email);
+                    }
+
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text("OTP Resent Successfully")),
@@ -186,6 +193,7 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
                     }
                   }
                 },
+
                 child: CustomText(
                   text: _isResending ? " Resending..." : " Resend",
                   color: _isResending ? AppColors.hintColor : AppColors.primary,

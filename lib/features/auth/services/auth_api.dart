@@ -30,6 +30,29 @@ class AuthApi {
     }
   }
 
+  Future<Map<String, dynamic>> resendOtp({required String email}) async {
+    try {
+      final requestData = {'email': email};
+      debugPrint('========== API REQUEST ==========');
+      debugPrint('Endpoint: ${AppEndpoints.resendOtp}');
+      debugPrint('Method: POST');
+      debugPrint('Request Body:');
+      requestData.forEach((key, value) {
+        debugPrint('  $key: $value');
+      });
+      debugPrint('=================================\n');
+
+      final Response response = await _client.post(
+        AppEndpoints.resendOtp,
+        data: requestData,
+      );
+      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
+      return data;
+    } on NetworkExceptions {
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>> checkUser({required String email, required String role}) async {
     try {
       final requestData = {
@@ -100,7 +123,7 @@ class AuthApi {
         debugPrint('  $key: $value');
       });
       debugPrint('=================================\n');
-      
+
       await _client.post(AppEndpoints.forgotPassword, data: requestData);
     } on NetworkExceptions {
       rethrow;
@@ -186,7 +209,8 @@ class AuthApi {
     required FormData formData,
     required double? latitude,
     required double? longitude,
-  }) async {
+  })
+  async {
     try {
       // Build URL with location query parameter as JSON object
       String url = AppEndpoints.registerPatient;

@@ -225,7 +225,7 @@ class _LoginViewState extends State<LoginView> {
               ? () async {
                   final success = await provider.sendOtp();
                   if (success) {
-                    Get.to(() => VerifyEmailView(email: provider.emailController.text.trim()));
+                    Get.to(() => VerifyEmailView(email: provider.emailController.text.trim(),));
                   }
                 }
               : null,

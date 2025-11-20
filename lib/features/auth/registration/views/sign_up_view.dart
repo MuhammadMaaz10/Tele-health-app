@@ -176,41 +176,49 @@ class CreateAccountView extends StatelessWidget {
 
   Future<void> _handleContinue(BuildContext context, SignUpProvider provider) async {
     final response = await provider.checkUser();
-    
-    if (response == null) {
-      // Error already shown in provider
-      return;
-    }
+    if (response == null) return;
 
-    // Check if user already exists - handle different response structures
-    final message = response['message'] as String?;
-    final userExists = response['exists'] as bool? ?? 
-                      (response['userExists'] as bool?) ?? 
-                      false;
-    
-    // Also check for error messages in response
-    final error = response['error'] as String?;
-    final status = response['status'] as String?;
+    final data = response['data'] as Map<String, dynamic>?;
 
-    if (userExists || status == 'error' || error != null) {
-      // Show message from backend
+    final status = data?['status'] as String?;
+    final backendMessage = data?['message'] as String?;
+    final email = provider.emailController.text.trim();
+    final role = provider.selectedRole!.toUpperCase();
+
+    // 1️⃣ If email already EXISTS
+    if (status == 'EXISTS') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message ?? error ?? 'User already registered'),
+          content: Text(backendMessage ?? "User already registered. Redirect to login."),
           backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
-    // User doesn't exist, navigate to registration screen
-    final role = provider.selectedRole!.toUpperCase(); // Convert to uppercase
-    final email = provider.emailController.text.trim(); // Keep email in original case
+    // 2️⃣ If account INACTIVE → Send to OTP verification
+    if (status == 'INACTIVE') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(backendMessage ?? "Account inactive. OTP sent."),
+          backgroundColor: Colors.blue,
+        ),
+      );
+
+      // Navigate to OTP screen for reactivation
+      Get.to(() => VerifyEmailView(
+        email: email,
+        isRegistration: true, // important
+      ));
+      return;
+    }
+
+    // 3️⃣ If NEW → continue to registration
     if (role == 'PATIENT') {
       Get.to(() => PatientRegistrationView(email: email, role: role));
     } else {
-      // Doctor or Nurse
       Get.to(() => DoctorRegistrationViewNew(email: email, role: role));
     }
   }
+
 }
