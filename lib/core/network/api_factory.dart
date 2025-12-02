@@ -14,6 +14,10 @@ class ApiFactory {
   static void setAuthToken(String? token) {
     _client.setAuthToken(token);
   }
+
+  static void clearAuthToken() {
+    _client.setAuthToken(null);
+  }
 }
 
 

@@ -138,25 +138,31 @@ class _CompleteProfileBody extends StatelessWidget {
               },
             ),
 
+
+            // ---------------------------------------------
+            // Location Field
+            // ---------------------------------------------
+            _locationField(context, provider),
+
             // Location button - required for registration
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: CustomButton(
-                text: provider.latitude != null && provider.longitude != null
-                    ? "Location Captured ✓"
-                    : "Get Current Location",
-                isLoading: provider.isLoadingLocation,
-                onPressed: provider.isLoadingLocation
-                    ? null
-                    : () async {
-                        await provider.getCurrentLocation();
-                        provider.notifyFormChange();
-                      },
-                backgroundColor: provider.latitude != null && provider.longitude != null
-                    ? Colors.green
-                    : AppColors.primary,
-              ),
-            ),
+            // Padding(
+            //   padding: const EdgeInsets.only(bottom: 16),
+            //   child: CustomButton(
+            //     text: provider.latitude != null && provider.longitude != null
+            //         ? "Location Captured ✓"
+            //         : "Get Current Location",
+            //     isLoading: provider.isLoadingLocation,
+            //     onPressed: provider.isLoadingLocation
+            //         ? null
+            //         : () async {
+            //             await provider.getCurrentLocation();
+            //             provider.notifyFormChange();
+            //           },
+            //     backgroundColor: provider.latitude != null && provider.longitude != null
+            //         ? Colors.green
+            //         : AppColors.primary,
+            //   ),
+            // ),
 
             kGap20,
             CustomText(
@@ -324,6 +330,36 @@ class _CompleteProfileBody extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // LOCATION FIELD
+  // ---------------------------------------------------------
+  Widget _locationField(
+      BuildContext context, DoctorRegistrationProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: CustomTextField(
+        hintText: "Your Location",
+        controller: provider.locationController,
+        prefixIcon:
+        Icon(Icons.location_on_outlined, color: AppColors.hintColor),
+        suffixIcon: provider.isLoadingLocation
+            ? SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+            : IconButton(
+          icon: Icon(Icons.my_location_outlined,
+              color: AppColors.primary),
+          onPressed: () async {
+            await provider.getCurrentLocation();
+          },
+        ),
+        onChanged: (_) => provider.notifyFormChange(),
       ),
     );
   }

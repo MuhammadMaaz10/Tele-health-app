@@ -3,6 +3,8 @@ import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:provider/provider.dart';
 import 'package:device_preview/device_preview.dart';
 import 'core/ui/snackbar_service.dart';
+import 'core/network/api_factory.dart';
+import 'core/utils/shared_preferences_service.dart';
 import 'features/auth/forgot_password/controller/forgot_password_provider.dart';
 import 'features/auth/forgot_password/controller/set_new_password_provider.dart';
 import 'features/auth/login/controller/login_controller.dart';
@@ -10,8 +12,18 @@ import 'features/auth/login/view/login_view.dart';
 import 'features/auth/registration/controller/doctor_registration_provider.dart';
 import 'features/auth/registration/controller/patient_profile_provider.dart';
 import 'features/auth/registration/controller/sign_up_provider.dart';
+import 'features/profile/controller/profile_provider.dart';
+import 'features/profile/view/profile_view.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Check if user is logged in
+  final token = await SharedPreferencesService.getToken();
+  if (token != null && token.isNotEmpty) {
+    ApiFactory.setAuthToken(token);
+  }
+
   runApp(
     DevicePreview(
       enabled: true, // ✅ Only active in debug mode
@@ -23,6 +35,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => PatientProfileProvider()),
           ChangeNotifierProvider(create: (_) => SetNewPasswordProvider()),
           ChangeNotifierProvider(create: (_) => DoctorRegistrationProvider()),
+          ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ],
         child: const MyApp(),
       ),
@@ -30,11 +43,43 @@ void main() {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isLoading = true;
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthStatus();
+  }
+
+  Future<void> _checkAuthStatus() async {
+    final isLoggedIn = await SharedPreferencesService.isLoggedIn();
+    setState(() {
+      _isLoggedIn = isLoggedIn;
+      _isLoading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Telehealth Services App',
@@ -48,7 +93,7 @@ class MyApp extends StatelessWidget {
 
       scaffoldMessengerKey: SnackbarService.scaffoldMessengerKey,
 
-      home: LoginView(),
+      home: _isLoggedIn ?  ProfileView() : LoginView(),
     );
   }
 }

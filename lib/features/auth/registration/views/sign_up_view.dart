@@ -190,7 +190,7 @@ class CreateAccountView extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(backendMessage ?? "User already registered. Redirect to login."),
-          backgroundColor: Colors.orange,
+          backgroundColor: Colors.red,
         ),
       );
       return;

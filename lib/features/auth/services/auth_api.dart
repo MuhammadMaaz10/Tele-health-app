@@ -57,7 +57,7 @@ class AuthApi {
     try {
       final requestData = {
         'email': email,
-        'role': role,
+        // 'role': role,
       };
       debugPrint('========== API REQUEST ==========');
       debugPrint('Endpoint: ${AppEndpoints.checkUser}');
@@ -215,11 +215,10 @@ class AuthApi {
       // Build URL with location query parameter as JSON object
       String url = AppEndpoints.registerPatient;
       if (latitude != null && longitude != null) {
-        // Format: {"latitude": lat, "longitude": lng}
         final locationJson = '{"latitude": $latitude, "longitude": $longitude}';
         url += '?location=${Uri.encodeComponent(locationJson)}';
       }
-      
+
       debugPrint('========== API REQUEST ==========');
       debugPrint('Endpoint: $url');
       debugPrint('Method: POST');
@@ -234,8 +233,8 @@ class AuthApi {
         debugPrint('  ${file.key}: ${file.value.filename} (${file.value.length} bytes)');
       }
       debugPrint('=================================\n');
-      
-      final Response response = await ApiFactory.dio.post(
+
+      final Response response = await _client.dio.post(
         url,
         data: formData,
         options: Options(
@@ -260,7 +259,6 @@ class AuthApi {
       // Build URL with location query parameter as JSON object
       String url = AppEndpoints.registerDoctor;
       if (latitude != null && longitude != null) {
-        // Format: {"latitude": lat, "longitude": lng}
         final locationJson = '{"latitude": $latitude, "longitude": $longitude}';
         url += '?location=${Uri.encodeComponent(locationJson)}';
       }
@@ -280,7 +278,7 @@ class AuthApi {
       }
       debugPrint('=================================\n');
       
-      final Response response = await ApiFactory.dio.post(
+      final Response response = await _client.dio.post(
         url,
         data: formData,
         options: Options(
@@ -300,12 +298,12 @@ class AuthApi {
     required FormData formData,
     required double? latitude,
     required double? longitude,
-  }) async {
+  })
+  async {
     try {
       // Build URL with location query parameter as JSON object
       String url = AppEndpoints.registerNurse;
       if (latitude != null && longitude != null) {
-        // Format: {"latitude": lat, "longitude": lng}
         final locationJson = '{"latitude": $latitude, "longitude": $longitude}';
         url += '?location=${Uri.encodeComponent(locationJson)}';
       }
@@ -325,7 +323,7 @@ class AuthApi {
       }
       debugPrint('=================================\n');
       
-      final Response response = await ApiFactory.dio.post(
+      final Response response = await _client.dio.post(
         url,
         data: formData,
         options: Options(
@@ -340,6 +338,71 @@ class AuthApi {
       rethrow;
     }
   }
+
+  Future<Map<String, dynamic>> getProfile({required String email}) async {
+    try {
+      debugPrint('========== API REQUEST ==========');
+      debugPrint('Endpoint: ${AppEndpoints.getProfile}?email=$email');
+      debugPrint('Method: GET');
+      debugPrint('=================================\n');
+      
+      final Response response = await _client.get(
+        AppEndpoints.getProfile,
+        queryParams: {'email': email},
+      );
+      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
+      return data;
+    } on NetworkExceptions {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> updateUser({
+    required FormData formData,
+    double? latitude,
+    double? longitude,
+  }) async {
+    try {
+      // Build URL with location query parameter as JSON object
+      String url = AppEndpoints.updateUser;
+      if (latitude != null && longitude != null) {
+        final locationJson = '{"latitude": $latitude, "longitude": $longitude}';
+        url += '?location=${Uri.encodeComponent(locationJson)}';
+      }
+
+      debugPrint('========== API REQUEST ==========');
+      debugPrint('Endpoint: $url');
+      debugPrint('Method: POST');
+      debugPrint('Content-Type: multipart/form-data');
+      if (latitude != null && longitude != null) {
+        debugPrint('Location Query: {"latitude": $latitude, "longitude": $longitude}');
+      }
+      debugPrint('\n--- Form Fields ---');
+      for (var field in formData.fields) {
+        debugPrint('  ${field.key}: ${field.value}');
+      }
+      debugPrint('\n--- Form Files ---');
+      for (var file in formData.files) {
+        debugPrint('  ${file.key}: ${file.value.filename} (${file.value.length} bytes)');
+      }
+      debugPrint('=================================\n');
+
+      final Response response = await _client.dio.post(
+        url,
+        data: formData,
+        options: Options(
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Accept': '*/*',
+          },
+        ),
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on NetworkExceptions {
+      rethrow;
+    }
+  }
+
 }
 
 

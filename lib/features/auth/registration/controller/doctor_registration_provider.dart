@@ -17,6 +17,7 @@ class DoctorRegistrationProvider extends ChangeNotifier {
   final gender = TextEditingController();
   final specialization = TextEditingController();
   final password = TextEditingController();
+  final locationController = TextEditingController();
 
   // Step/page controller
   final PageController pageController = PageController();
@@ -86,6 +87,10 @@ class DoctorRegistrationProvider extends ChangeNotifier {
       // Store coordinates for API
       latitude = position.latitude;
       longitude = position.longitude;
+
+      locationController.text =
+      "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+
 
       // Location coordinates are stored, no need to display address
     } catch (e) {
@@ -190,14 +195,13 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     return username.text.isNotEmpty &&
         phone.text.isNotEmpty &&
         dob.text.isNotEmpty &&
-        gender.text.isNotEmpty
-    &&
+        gender.text.isNotEmpty &&
         specialization.text.isNotEmpty &&
         // password.text.isNotEmpty &&
         idDocumentFile != null &&
         practicingCertificateFile != null &&
-        educationalCertificateFile != null
-    &&
+        educationalCertificateFile != null &&
+        locationController.text.trim().isNotEmpty &&
         latitude != null &&
         longitude != null;
   }
@@ -351,6 +355,7 @@ class DoctorRegistrationProvider extends ChangeNotifier {
     gender.dispose();
     specialization.dispose();
     password.dispose();
+    locationController.dispose();
     super.dispose();
   }
 }

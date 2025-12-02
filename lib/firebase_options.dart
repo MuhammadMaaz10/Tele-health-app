@@ -41,48 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyD9psOMAsuSG8YF2hcz03ViQ-Gwo_Iefro',
-    appId: '1:441878211691:web:7fce7b38dac0d26426952e',
-    messagingSenderId: '441878211691',
-    projectId: 'tele-health-a0d35',
-    authDomain: 'tele-health-a0d35.firebaseapp.com',
-    storageBucket: 'tele-health-a0d35.firebasestorage.app',
-    measurementId: 'G-VVJECS3J2D',
+    apiKey: 'AIzaSyA30Von4xQ6ienuTMJqhkhbXlQPz7ofZh8',
+    appId: '1:181933459116:web:579052daca44af1cb10109',
+    messagingSenderId: '181933459116',
+    projectId: 'telehealth-app-b51b9',
+    authDomain: 'telehealth-app-b51b9.firebaseapp.com',
+    storageBucket: 'telehealth-app-b51b9.firebasestorage.app',
+    measurementId: 'G-Z2GNB2NH1F',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyB9pO0gA5SFiEJNrrX3_bWBYzJbxhkhWNU',
-    appId: '1:441878211691:android:75f8cc83419d159526952e',
-    messagingSenderId: '441878211691',
-    projectId: 'tele-health-a0d35',
-    storageBucket: 'tele-health-a0d35.firebasestorage.app',
+    apiKey: 'AIzaSyAq9QmU10ISSCm5JgbjOe-WqXf935WLxBg',
+    appId: '1:181933459116:android:7c8c1c8133b4ede3b10109',
+    messagingSenderId: '181933459116',
+    projectId: 'telehealth-app-b51b9',
+    storageBucket: 'telehealth-app-b51b9.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyB0eTB0KRpjpRDSIEue2sSPxNID6r9f-H4',
-    appId: '1:441878211691:ios:f20a4c1271fa747f26952e',
-    messagingSenderId: '441878211691',
-    projectId: 'tele-health-a0d35',
-    storageBucket: 'tele-health-a0d35.firebasestorage.app',
+    apiKey: 'AIzaSyCaA9Jnt2HHvMVmTMFJ3ZJVOvIGz2h2ntI',
+    appId: '1:181933459116:ios:b101bd3f42c85078b10109',
+    messagingSenderId: '181933459116',
+    projectId: 'telehealth-app-b51b9',
+    storageBucket: 'telehealth-app-b51b9.firebasestorage.app',
     iosBundleId: 'com.example.telehealthApp',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyB0eTB0KRpjpRDSIEue2sSPxNID6r9f-H4',
-    appId: '1:441878211691:ios:f20a4c1271fa747f26952e',
-    messagingSenderId: '441878211691',
-    projectId: 'tele-health-a0d35',
-    storageBucket: 'tele-health-a0d35.firebasestorage.app',
+    apiKey: 'AIzaSyCaA9Jnt2HHvMVmTMFJ3ZJVOvIGz2h2ntI',
+    appId: '1:181933459116:ios:b101bd3f42c85078b10109',
+    messagingSenderId: '181933459116',
+    projectId: 'telehealth-app-b51b9',
+    storageBucket: 'telehealth-app-b51b9.firebasestorage.app',
     iosBundleId: 'com.example.telehealthApp',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyD9psOMAsuSG8YF2hcz03ViQ-Gwo_Iefro',
-    appId: '1:441878211691:web:d91f9dc04b381ea426952e',
-    messagingSenderId: '441878211691',
-    projectId: 'tele-health-a0d35',
-    authDomain: 'tele-health-a0d35.firebaseapp.com',
-    storageBucket: 'tele-health-a0d35.firebasestorage.app',
-    measurementId: 'G-RM182X3FE7',
+    apiKey: 'AIzaSyA30Von4xQ6ienuTMJqhkhbXlQPz7ofZh8',
+    appId: '1:181933459116:web:aeac7f1f05379c95b10109',
+    messagingSenderId: '181933459116',
+    projectId: 'telehealth-app-b51b9',
+    authDomain: 'telehealth-app-b51b9.firebaseapp.com',
+    storageBucket: 'telehealth-app-b51b9.firebasestorage.app',
+    measurementId: 'G-VWKP4BKRDW',
   );
+
 }

@@ -13,17 +13,21 @@ import '../../otp_verification/views/otp_view.dart';
 class PatientRegistrationView extends StatelessWidget {
   final String email;
   final String role;
-  
-  const PatientRegistrationView({Key? key, required this.email, required this.role}) : super(key: key);
+
+  const PatientRegistrationView({
+    Key? key,
+    required this.email,
+    required this.role,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Set email and role in provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<PatientProfileProvider>();
       provider.setEmail(email);
       provider.setRole(role);
     });
+
     return _CompleteProfileBody(email: email, role: role);
   }
 }
@@ -31,8 +35,12 @@ class PatientRegistrationView extends StatelessWidget {
 class _CompleteProfileBody extends StatelessWidget {
   final String email;
   final String role;
-  
-  const _CompleteProfileBody({Key? key, required this.email, required this.role}) : super(key: key);
+
+  const _CompleteProfileBody({
+    Key? key,
+    required this.email,
+    required this.role,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +48,8 @@ class _CompleteProfileBody extends StatelessWidget {
 
     return ResponsiveAuthLayout(
       title: 'Complete Your Profile',
-      description: 'Fill in your details to complete your profile and start using our telehealth services.',
+      description:
+      'Fill in your details to complete your profile and start using our telehealth services.',
       showBackButton: true,
       formContent: SingleChildScrollView(
         child: Column(
@@ -59,84 +68,115 @@ class _CompleteProfileBody extends StatelessWidget {
             ),
             kGap30,
 
-                // --- Profile Picture Upload ---
-                Center(
-                  child: GestureDetector(
-                    onTap: () => provider.pickProfileImage(context),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey[300],
-                      backgroundImage: provider.profileImage != null
-                          ? FileImage(provider.profileImage!)
-                          : provider.profileImageBytes != null
-                          ? MemoryImage(provider.profileImageBytes!)
-                          : null,
-                      child: provider.profileImage == null && provider.profileImageBytes == null
-                          ? Icon(Icons.camera_alt_outlined, size: 30, color: Colors.grey)
-                          : null,
-                    ),
-
-                  ),
+            // ---------------------------------------------
+            // Profile Picture
+            // ---------------------------------------------
+            Center(
+              child: GestureDetector(
+                onTap: () => provider.pickProfileImage(context),
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Colors.grey[300],
+                  backgroundImage: provider.profileImage != null
+                      ? FileImage(provider.profileImage!)
+                      : provider.profileImageBytes != null
+                      ? MemoryImage(provider.profileImageBytes!)
+                      : null,
+                  child: provider.profileImage == null &&
+                      provider.profileImageBytes == null
+                      ? Icon(Icons.camera_alt_outlined,
+                      size: 30, color: Colors.grey)
+                      : null,
                 ),
-                const SizedBox(height: 10),
-                Center(
-                  child: CustomText(
-                    text: "Tap to upload profile picture (optional)",
-                    fontSize: 13,
-                    color: AppColors.hintColor,
-                  ),
-                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: CustomText(
+                text: "Tap to upload profile picture (optional)",
+                fontSize: 13,
+                color: AppColors.hintColor,
+              ),
+            ),
 
-                const SizedBox(height: 24),
-                _field(context, "First Name", "firstName",
-                    controller: provider.firstNameController),
-                _field(context, "Last Name", "lastName",
-                    controller: provider.lastNameController),
-                _field(context, "Phone Number", "phone",
-                    controller: provider.phoneController,
-                    keyboardType: TextInputType.phone,
-                    prefixIcon:
-                    Icon(Icons.phone_outlined, color: AppColors.hintColor)),
+            const SizedBox(height: 24),
 
-                _field(
-                  context,
-                  "Gender",
-                  "gender",
-                  controller: provider.genderController,
-                  readOnly: true,
-                  suffixIcon: const Icon(Icons.arrow_drop_down),
-                  onTap: () async {
-                    final gender = await showModalBottomSheet<String>(
-                      context: context,
-                      builder: (_) => const GenderPickerSheet(),
-                    );
-                    if (gender != null) {
-                      provider.genderController.text = gender;
-                      provider.errors["gender"] = null;
-                      provider.notifyListeners();
-                    }
-                  },
-                ),
+            // ---------------------------------------------
+            // Text Fields
+            // ---------------------------------------------
+            _field(
+              context,
+              "First Name",
+              controller: provider.firstNameController,
+            ),
+            _field(
+              context,
+              "Last Name",
+              controller: provider.lastNameController,
+            ),
+            _field(
+              context,
+              "Phone Number",
+              keyboardType: TextInputType.phone,
+              prefixIcon: Icon(Icons.phone_outlined, color: AppColors.hintColor),
+              controller: provider.phoneController,
+            ),
 
-                _field(
-                  context,
-                  "Date of Birth",
-                  "dob",
-                  controller: provider.dobController,
-                  readOnly: true,
-                  suffixIcon: const Icon(Icons.calendar_today_outlined),
-                  onTap: () => provider.pickDate(context),
-                ),
+            _field(
+              context,
+              "Gender",
+              readOnly: true,
+              suffixIcon: const Icon(Icons.arrow_drop_down),
+              controller: provider.genderController,
+              onTap: () async {
+                final gender = await showModalBottomSheet<String>(
+                  context: context,
+                  builder: (_) => const GenderPickerSheet(),
+                );
+                if (gender != null) {
+                  provider.genderController.text = gender;
+                  provider.notifyFormChange();
+                }
+              },
+            ),
 
-                _locationField(context, provider),
+            _field(
+              context,
+              "Date of Birth",
+              readOnly: true,
+              suffixIcon: const Icon(Icons.calendar_today_outlined),
+              controller: provider.dobController,
+              onTap: () async {
+                final now = DateTime.now();
+                final pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime(now.year - 25),
+                  firstDate: DateTime(1900),
+                  lastDate: now,
+                );
+                if (pickedDate != null) {
+                  provider.dobController.text =
+                  "${pickedDate.day.toString().padLeft(2, '0')}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.year}";
+                  provider.notifyFormChange();
+                }
+              },
+            ),
 
-                // kGap20,
+            // ---------------------------------------------
+            // Location Field
+            // ---------------------------------------------
+            _locationField(context, provider),
 
-                CustomText(
-                  text: "Upload ID Document (optional)",
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textColor,
-                ),
+            kGap20,
+
+            // ---------------------------------------------
+            // ID Document
+            // ---------------------------------------------
+            CustomText(
+              text: "Upload ID Document (optional)",
+              fontWeight: FontWeight.w600,
+              color: AppColors.textColor,
+            ),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () => provider.pickIdDocument(context),
@@ -148,10 +188,11 @@ class _CompleteProfileBody extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                 ),
-                child: provider.idDocument != null || provider.idDocumentBytes != null
+                child: provider.idDocument != null ||
+                    provider.idDocumentBytes != null
                     ? Center(
                   child: CustomText(
-                    text: "✅ ID Document Selected",
+                    text: "✅ Document Selected",
                     color: AppColors.primary,
                   ),
                 )
@@ -160,30 +201,29 @@ class _CompleteProfileBody extends StatelessWidget {
                   children: [
                     Icon(Icons.upload_file_outlined, color: Colors.grey),
                     SizedBox(height: 6),
-                    CustomText(text: "Tap to upload file", color: AppColors.hintColor),
+                    CustomText(
+                      text: "Tap to upload file",
+                      color: AppColors.hintColor,
+                    ),
                   ],
                 ),
-
               ),
             ),
 
-
             kGap30,
+
+            // ---------------------------------------------
+            // Submit Button
+            // ---------------------------------------------
             CustomButton(
               text: "Complete Profile",
               isLoading: provider.isLoading,
               onPressed: provider.isFormValid && !provider.isLoading
                   ? () async {
-                      if (provider.handleSubmit(context)) {
-                        try {
-                          await provider.submitToApi(context);
-                          // Navigate to OTP verification for registration
-                          Get.to(() => VerifyEmailView(email: email, isRegistration: true));
-                        } catch (e) {
-                          // Error already shown in submitToApi
-                        }
-                      }
-                    }
+                await provider.submitRegistration(context);
+                Get.to(() =>
+                    VerifyEmailView(email: email, isRegistration: true));
+              }
                   : null,
               backgroundColor: provider.isFormValid && !provider.isLoading
                   ? AppColors.primary
@@ -195,10 +235,12 @@ class _CompleteProfileBody extends StatelessWidget {
     );
   }
 
+  // ---------------------------------------------------------
+  // FIELD BUILDER
+  // ---------------------------------------------------------
   Widget _field(
       BuildContext context,
-      String label,
-      String key, {
+      String label, {
         required TextEditingController controller,
         TextInputType? keyboardType,
         bool readOnly = false,
@@ -206,85 +248,50 @@ class _CompleteProfileBody extends StatelessWidget {
         Widget? suffixIcon,
         VoidCallback? onTap,
       }) {
-    final provider = context.watch<PatientProfileProvider>();
+    final provider = context.read<PatientProfileProvider>();
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomTextField(
-            label: label,
-            hintText: label,
-            controller: controller,
-            keyboardType: keyboardType,
-            readOnly: readOnly,
-            prefixIcon: prefixIcon,
-            suffixIcon: suffixIcon,
-            onTap: onTap,
-            onChanged: (v) => provider.validateField(key, v),
-          ),
-          if (provider.errors[key] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 8),
-              child: CustomText(
-                text: provider.errors[key]!,
-                color: Colors.red,
-                fontSize: 12,
-              ),
-            ),
-        ],
+      child: CustomTextField(
+        label: label,
+        hintText: label,
+        controller: controller,
+        keyboardType: keyboardType,
+        readOnly: readOnly,
+        prefixIcon: prefixIcon,
+        suffixIcon: suffixIcon,
+        onTap: onTap,
+        onChanged: (_) => provider.notifyFormChange(),
       ),
     );
   }
 
-  Widget _locationField(BuildContext context, PatientProfileProvider provider) {
+  // ---------------------------------------------------------
+  // LOCATION FIELD
+  // ---------------------------------------------------------
+  Widget _locationField(
+      BuildContext context, PatientProfileProvider provider) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomTextField(
-            hintText: "Your Location",
-            controller: provider.locationController,
-            prefixIcon: Icon(Icons.location_on_outlined,
-                color: AppColors.hintColor, size: 20),
-            suffixIcon: provider.isLoadingLocation
-                ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: Padding(
-                padding: EdgeInsets.all(4),
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-                : IconButton(
-              icon: Icon(Icons.my_location_outlined,
-                  color: AppColors.primary, size: 20),
-              onPressed: ()async{
-               await provider.getCurrentLocation();
-              },
-            ),
-            onChanged: (v) => provider.validateField("location", v),
-          ),
-          if (provider.errors["location"] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 8),
-              child: CustomText(
-                text: provider.errors["location"]!,
-                color: Colors.red,
-                fontSize: 12,
-              ),
-            ),
-          if (provider.locationError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 8),
-              child: CustomText(
-                text: provider.locationError!,
-                color: Colors.orange,
-                fontSize: 12,
-              ),
-            ),
-        ],
+      child: CustomTextField(
+        hintText: "Your Location",
+        controller: provider.locationController,
+        prefixIcon:
+        Icon(Icons.location_on_outlined, color: AppColors.hintColor),
+        suffixIcon: provider.isLoadingLocation
+            ? SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+            : IconButton(
+          icon: Icon(Icons.my_location_outlined,
+              color: AppColors.primary),
+          onPressed: () async {
+            await provider.getCurrentLocation();
+          },
+        ),
+        onChanged: (_) => provider.notifyFormChange(),
       ),
     );
   }
@@ -300,10 +307,12 @@ class GenderPickerSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: genders
-            .map((g) => ListTile(
-          title: Text(g),
-          onTap: () => Navigator.pop(context, g),
-        ))
+            .map(
+              (g) => ListTile(
+            title: Text(g),
+            onTap: () => Navigator.pop(context, g),
+          ),
+        )
             .toList(),
       ),
     );

@@ -7,7 +7,8 @@ import 'package:telehealth_app/shared_widgets/app_button.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
 import 'package:telehealth_app/features/auth/services/auth_api.dart';
-import 'package:telehealth_app/features/home/view/home_view.dart';
+import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
+import 'package:telehealth_app/features/profile/view/profile_view.dart';
 
 import '../../../../shared_widgets/otp_text_field.dart';
 
@@ -52,18 +53,32 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
     });
 
     try {
+      Map<String, dynamic> response;
       if (widget.isRegistration) {
-        await _authApi.verifyRegisterOtp(email: widget.email, otp: otp);
+        response = await _authApi.verifyRegisterOtp(email: widget.email, otp: otp);
       } else {
-        await _authApi.verifyLoginOtp(email: widget.email, otp: otp);
+        response = await _authApi.verifyLoginOtp(email: widget.email, otp: otp);
+      }
+
+      // Extract token and role from response
+      final String? token = response['token'] as String?;
+      final String? role = response['role'] as String?;
+
+      if (token != null && token.isNotEmpty) {
+        // Save token, email, and role to SharedPreferences
+        await SharedPreferencesService.saveToken(token);
+        await SharedPreferencesService.saveEmail(widget.email);
+        if (role != null) {
+          await SharedPreferencesService.saveRole(role);
+        }
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("OTP Verified Successfully ✅")),
         );
-        // Navigate to home screen
-        Get.offAll(() => const HomeView());
+        // Navigate to profile screen
+        Get.offAll(() => const ProfileView());
       }
     } on NetworkExceptions catch (e) {
       setState(() {

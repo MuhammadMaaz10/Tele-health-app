@@ -14,4 +14,8 @@ class AppEndpoints {
   static const String registerPatient = "$baseUrl/auth/register-patient";
   static const String registerDoctor = "$baseUrl/auth/register-practioner";
   static const String registerNurse = "$baseUrl/auth/register-practioner";
+  
+  // Profile
+  static const String getProfile = "$baseUrl/auth/getProfile";
+  static const String updateUser = "$baseUrl/auth/update-user";
 }
