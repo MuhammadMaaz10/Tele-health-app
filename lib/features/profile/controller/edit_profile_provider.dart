@@ -178,6 +178,16 @@ class EditProfileProvider extends ChangeNotifier {
     try {
       final formData = FormData();
 
+      // Required fields - always sent in background
+      // Email is required, use stored email or fallback
+      final emailToSend = userEmail ?? '';
+      if (emailToSend.isEmpty) {
+        throw Exception('Email is required but not available');
+      }
+      formData.fields.add(MapEntry('email', emailToSend));
+      // Password field - required but sent as empty string
+      formData.fields.add(MapEntry('password', ''));
+
       // Text fields (all optional)
       if (usernameController.text.trim().isNotEmpty) {
         formData.fields.add(MapEntry('username', usernameController.text.trim()));
