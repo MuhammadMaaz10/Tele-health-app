@@ -8,7 +8,8 @@ import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
 import 'package:telehealth_app/features/auth/services/auth_api.dart';
 import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
-import 'package:telehealth_app/features/profile/view/profile_view.dart';
+import 'package:telehealth_app/core/navigation/main_navigation.dart';
+import 'package:telehealth_app/core/network/api_factory.dart';
 
 import '../../../../shared_widgets/otp_text_field.dart';
 
@@ -71,14 +72,16 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
         if (role != null) {
           await SharedPreferencesService.saveRole(role);
         }
+        // Set token in API factory for authenticated requests
+        ApiFactory.setAuthToken(token);
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("OTP Verified Successfully ✅")),
         );
-        // Navigate to profile screen
-        Get.offAll(() => const ProfileView());
+        // Navigate to main navigation (with bottom nav bar)
+        Get.offAll(() => const MainNavigation());
       }
     } on NetworkExceptions catch (e) {
       setState(() {

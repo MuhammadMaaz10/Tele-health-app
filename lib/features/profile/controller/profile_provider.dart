@@ -23,6 +23,13 @@ class ProfileProvider extends ChangeNotifier {
   Future<void> _initialize() async {
     userEmail = await SharedPreferencesService.getEmail();
     userRole = await SharedPreferencesService.getRole();
+    
+    // Re-initialize token on provider init (important for web/desktop reload)
+    final token = await SharedPreferencesService.getToken();
+    if (token != null && token.isNotEmpty) {
+      ApiFactory.setAuthToken(token);
+    }
+    
     notifyListeners();
     
     if (userEmail != null) {

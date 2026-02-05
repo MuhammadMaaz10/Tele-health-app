@@ -6,6 +6,8 @@ import 'package:telehealth_app/core/utils/app_sizing.dart';
 import 'package:telehealth_app/features/auth/login/view/login_view.dart';
 import 'package:telehealth_app/shared_widgets/app_button.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import 'package:telehealth_app/shared_widgets/shimmer_widget.dart';
 import '../controller/profile_provider.dart';
 import '../controller/edit_profile_provider.dart';
 import '../model/profile_model.dart';
@@ -141,70 +143,161 @@ class _ProfileViewBody extends StatelessWidget {
   Widget _buildProfileContent(BuildContext context, bool isDesktop) {
     final provider = context.watch<ProfileProvider>();
 
+    if (provider.isLoadingProfile) {
+      return Skeletonizer(
+        enabled: true,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: isDesktop ? 160 : 130,
+              height: isDesktop ? 160 : 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withOpacity(0.6),
+                  ],
+                ),
+              ),
+            ),
+            kGap24,
+            Container(
+              width: 200,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            kGap12,
+            Container(
+              width: 100,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Profile Picture
+        // Profile Picture with gradient border
         Container(
-          width: isDesktop ? 150 : 120,
-          height: isDesktop ? 150 : 120,
+          width: isDesktop ? 160 : 130,
+          height: isDesktop ? 160 : 130,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.primary.withOpacity(0.1),
-            border: Border.all(
-              color: AppColors.primary,
-              width: 3,
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary,
+                AppColors.primary.withOpacity(0.6),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          child: provider.user?.profilePicUrl != null
-              ? ClipOval(
-                  child: Image.network(
-                    provider.user!.profilePicUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        _buildDefaultAvatar(),
-                  ),
-                )
-              : _buildDefaultAvatar(),
+          padding: const EdgeInsets.all(4),
+          child: Container(
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+            ),
+            padding: const EdgeInsets.all(3),
+            child: provider.user?.profilePicUrl != null
+                ? ClipOval(
+                    child: Image.network(
+                      provider.user!.profilePicUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildDefaultAvatar(),
+                    ),
+                  )
+                : _buildDefaultAvatar(),
+          ),
         ),
-        kGap20,
+        kGap24,
         // Name
         CustomText(
           text: _getDisplayName(provider.user),
-          fontSize: isDesktop ? 28 : 24,
-          fontWeight: FontWeight.w700,
+          fontSize: isDesktop ? 32 : 26,
+          fontWeight: FontWeight.w800,
           color: AppColors.textColor,
           textAlign: TextAlign.center,
         ),
-        kGap8,
-        // Role Badge
+        kGap12,
+        // Role Badge with icon
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.primary),
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary,
+                AppColors.primary.withOpacity(0.8),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(25),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: CustomText(
-            text: provider.userRole ?? 'USER',
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primary,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.verified_user, color: Colors.white, size: 16),
+              const SizedBox(width: 6),
+              CustomText(
+                text: provider.userRole ?? 'USER',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ],
           ),
         ),
-        kGap20,
-        // Email
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.email_outlined, size: 18, color: AppColors.hintColor),
-            kGap8,
-            CustomText(
-              text: provider.userEmail ?? '',
-              fontSize: 14,
-              color: AppColors.hintColor,
-            ),
-          ],
+        kGap24,
+        // Email with better styling
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.lightBorderColor),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.email_outlined, size: 18, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Flexible(
+                child: CustomText(
+                  text: provider.userEmail ?? '',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textColor,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -214,11 +307,11 @@ class _ProfileViewBody extends StatelessWidget {
     final provider = context.watch<ProfileProvider>();
 
     if (provider.isLoadingProfile) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: CircularProgressIndicator(),
-        ),
+      return Column(
+        children: List.generate(3, (index) => Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: ShimmerCard(height: 120),
+        )),
       );
     }
 
@@ -267,6 +360,7 @@ class _ProfileViewBody extends StatelessWidget {
         kGap30,
         _buildInfoCard(
           context,
+          Icons.person_outline,
           'Personal Information',
           [
             _buildInfoRow('Username', user.username),
@@ -281,6 +375,7 @@ class _ProfileViewBody extends StatelessWidget {
         if (provider.userRole == 'DOCTOR' || provider.userRole == 'NURSE')
           _buildInfoCard(
             context,
+            Icons.medical_services_outlined,
             'Professional Information',
             [
               _buildInfoRow('Specialization', user.specialization),
@@ -294,6 +389,7 @@ class _ProfileViewBody extends StatelessWidget {
         kGap20,
         _buildInfoCard(
           context,
+          Icons.account_circle_outlined,
           'Account Information',
           [
             _buildInfoRow('Email', user.email),
@@ -310,34 +406,48 @@ class _ProfileViewBody extends StatelessWidget {
 
   Widget _buildInfoCard(
     BuildContext context,
+    IconData icon,
     String title,
     List<Widget> children,
   ) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.lightBorderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomText(
-            text: title,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textColor,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              CustomText(
+                text: title,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textColor,
+              ),
+            ],
           ),
-          kGap16,
+          kGap20,
           ...children,
         ],
       ),

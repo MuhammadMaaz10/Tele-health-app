@@ -18,4 +18,15 @@ class AppEndpoints {
   // Profile
   static const String getProfile = "$baseUrl/auth/getProfile";
   static const String updateUser = "$baseUrl/auth/update-user";
+  
+  // Appointments
+  static const String createAppointment = "$baseUrl/schedule/create";
+  static const String getMyAppointments = "$baseUrl/schedule/my-appointments";
+  static const String updateAppointment = "$baseUrl/schedule/update";
+  static const String cancelAppointment = "$baseUrl/schedule/cancel-appointment";
+  static const String confirmAppointment = "$baseUrl/schedule/confirm-appointment";
+  static const String addAppointmentNotes = "$baseUrl/appointment";
+  static const String getAppointmentNotes = "$baseUrl/appointment/get-notes-by-email";
+  static const String updateAppointmentNote = "$baseUrl/appointment";
+  static const String deleteAppointmentNote = "$baseUrl/appointment";
 }

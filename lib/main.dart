@@ -13,15 +13,22 @@ import 'features/auth/registration/controller/doctor_registration_provider.dart'
 import 'features/auth/registration/controller/patient_profile_provider.dart';
 import 'features/auth/registration/controller/sign_up_provider.dart';
 import 'features/profile/controller/profile_provider.dart';
-import 'features/profile/view/profile_view.dart';
+import 'features/appointments/controller/appointment_provider.dart';
+import 'core/navigation/main_navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Check if user is logged in
+  // IMPORTANT: Set token BEFORE creating providers to ensure it's available for API calls
+  // This is especially critical on web/desktop where reload can cause timing issues
   final token = await SharedPreferencesService.getToken();
   if (token != null && token.isNotEmpty) {
     ApiFactory.setAuthToken(token);
+    // Verify token was set (important for web persistence)
+    debugPrint('✅ Token initialized on app start: ${token.substring(0, 20)}...');
+  } else {
+    debugPrint('⚠️ No token found on app start');
+    ApiFactory.clearAuthToken();
   }
 
   runApp(
@@ -36,6 +43,7 @@ void main() async {
           ChangeNotifierProvider(create: (_) => SetNewPasswordProvider()),
           ChangeNotifierProvider(create: (_) => DoctorRegistrationProvider()),
           ChangeNotifierProvider(create: (_) => ProfileProvider()),
+          ChangeNotifierProvider(create: (_) => AppointmentProvider()),
         ],
         child: const MyApp(),
       ),
@@ -93,7 +101,7 @@ class _MyAppState extends State<MyApp> {
 
       scaffoldMessengerKey: SnackbarService.scaffoldMessengerKey,
 
-      home: _isLoggedIn ?  ProfileView() : LoginView(),
+      home: _isLoggedIn ? const MainNavigation() : LoginView(),
     );
   }
 }

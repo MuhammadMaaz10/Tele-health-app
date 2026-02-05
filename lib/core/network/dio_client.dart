@@ -23,7 +23,11 @@ class ApiClient {
     if (token == null || token.isEmpty) {
       dio.options.headers.remove('Authorization');
     } else {
-      dio.options.headers['Authorization'] = 'Bearer $token';
+      // Ensure token is properly formatted and set
+      final authToken = token.startsWith('Bearer ') ? token : 'Bearer $token';
+      dio.options.headers['Authorization'] = authToken;
+      // Also update default headers to persist across requests
+      dio.options.headers['Authorization'] = authToken;
     }
   }
 

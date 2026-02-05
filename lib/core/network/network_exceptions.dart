@@ -1,13 +1,37 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class NetworkExceptions implements Exception {
   final String message;
   NetworkExceptions(this.message);
 
   static NetworkExceptions handleResponse(DioException e) {
+    // Handle connection errors (CORS, network issues, etc.)
     if (e.response == null) {
-      // No response = network or DNS or SSL issue
-      return NetworkExceptions("Network error: ${e.message}");
+      final errorMessage = e.message ?? '';
+      
+      // Detect CORS errors on web
+      if (kIsWeb && 
+          (e.type == DioExceptionType.connectionError || 
+           errorMessage.contains('XMLHttpRequest') ||
+           errorMessage.contains('CORS') ||
+           errorMessage.contains('cross-origin'))) {
+        return NetworkExceptions(
+          "Connection blocked: The server is not configured to accept requests from this web app. "
+          "This is a server configuration issue (CORS). Please contact support or try using the mobile app."
+        );
+      }
+      
+      // Generic connection error
+      if (e.type == DioExceptionType.connectionError) {
+        return NetworkExceptions(
+          "Connection Error: Unable to reach the server. "
+          "Please check your internet connection and try again."
+        );
+      }
+      
+      // Network or DNS or SSL issue
+      return NetworkExceptions("Network error: ${errorMessage.isNotEmpty ? errorMessage : 'Unable to connect to server'}");
     }
 
     final statusCode = e.response?.statusCode ?? 0;

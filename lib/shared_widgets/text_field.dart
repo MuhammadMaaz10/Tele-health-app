@@ -11,6 +11,7 @@ class CustomTextField extends StatefulWidget {
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
   final bool readOnly;
+  final int? maxLines;
   void Function()? onTap;
   void Function(String)? onChanged;
 
@@ -24,6 +25,7 @@ class CustomTextField extends StatefulWidget {
     this.validator,
     this.keyboardType,
      this.readOnly = false,
+    this.maxLines,
     this.onTap,
      this.onChanged
   });
@@ -51,6 +53,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       controller: widget.controller,
       obscureText: _obscureText,
       keyboardType: widget.keyboardType,
+      maxLines: widget.maxLines ?? 1,
       style: TextStyle(fontSize: 14,fontWeight: FontWeight.w500, color: AppColors.black),
       decoration: InputDecoration(
         labelText: widget.label,
