@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:telehealth_app/core/network/api_factory.dart';
 import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:telehealth_app/core/utils/location_utils.dart';
 import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
 import 'package:telehealth_app/features/auth/services/auth_api.dart';
 import '../model/profile_model.dart';
@@ -53,6 +54,20 @@ class ProfileProvider extends ChangeNotifier {
       if (user != null && user!.roles.isNotEmpty) {
         userRole = user!.primaryRole;
         await SharedPreferencesService.saveRole(userRole!);
+      }
+      
+      // Reverse geocode location if available
+      if (user != null && user!.location != null) {
+        try {
+          final address = await LocationUtils.getAddressFromCoordinates(
+            latitude: user!.location!.latitude,
+            longitude: user!.location!.longitude,
+          );
+          user!.location!.setReadableAddress(address);
+        } catch (e) {
+          // If reverse geocoding fails, location will use coordinates as fallback
+          debugPrint('Failed to reverse geocode location: $e');
+        }
       }
       
       notifyListeners();

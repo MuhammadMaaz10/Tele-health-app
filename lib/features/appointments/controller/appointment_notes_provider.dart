@@ -18,7 +18,7 @@ class AppointmentNotesProvider extends ChangeNotifier {
   bool isLoadingNotes = false;
   String? error;
   List<AppointmentNote> notes = [];
-  NoteType selectedNoteType = NoteType.GENERAL;
+  NoteType selectedNoteType = NoteType.SUBJECTIVE;
   String? userRole;
   int? editingNoteId; // Track which note is being edited
 
@@ -45,16 +45,33 @@ class AppointmentNotesProvider extends ChangeNotifier {
     return role == 'PATIENT';
   }
 
-  /// Load all appointment notes for the current user
-  Future<void> loadNotes() async {
+  int? _currentAppointmentId;
+  AppointmentNote? _existingNote; // Track the existing note for the appointment
+
+  /// Load appointment notes for a specific appointment
+  Future<void> loadNotes({required int appointmentId}) async {
     isLoadingNotes = true;
     error = null;
+    _currentAppointmentId = appointmentId;
+    _existingNote = null;
+    editingNoteId = null;
     notifyListeners();
 
     try {
-      notes = await _appointmentApi.getAppointmentNotesByEmail();
+      final appointmentNotes = await _appointmentApi.getAppointmentNotesByAppointmentId(appointmentId);
+      
+      notes = appointmentNotes;
+      
       // Sort by creation date (newest first)
       notes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      // If a note exists and user is a doctor/nurse, automatically load it for editing
+      if (notes.isNotEmpty && canModifyNotes) {
+        _existingNote = notes.first; // Get the most recent note
+        // Auto-load the note for editing
+        loadNoteForEditing(_existingNote!);
+      }
+      
       notifyListeners();
     } on NetworkExceptions catch (e) {
       error = e.message;
@@ -67,6 +84,36 @@ class AppointmentNotesProvider extends ChangeNotifier {
     } finally {
       isLoadingNotes = false;
       notifyListeners();
+    }
+  }
+
+  /// Load a specific appointment note by appointmentId and noteId
+  Future<AppointmentNote?> loadNoteById({
+    required int appointmentId,
+    required int noteId,
+  }) async {
+    isLoadingNotes = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      final note = await _appointmentApi.getAppointmentNoteById(
+        appointmentId: appointmentId,
+        noteId: noteId,
+      );
+      isLoadingNotes = false;
+      notifyListeners();
+      return note;
+    } on NetworkExceptions catch (e) {
+      error = e.message;
+      isLoadingNotes = false;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      error = 'Failed to load appointment note. Please try again.';
+      isLoadingNotes = false;
+      notifyListeners();
+      return null;
     }
   }
 
@@ -83,7 +130,10 @@ class AppointmentNotesProvider extends ChangeNotifier {
     diagnosisController.text = note.diagnosis;
     treatmentPlanController.text = note.treatmentPlan;
     observationsController.text = note.observations;
-    // Note: NoteType would need to be stored in the model to set selectedNoteType
+    // Set note type if available
+    if (note.noteType != null) {
+      selectedNoteType = NoteType.fromString(note.noteType!);
+    }
     notifyListeners();
   }
 
@@ -118,10 +168,21 @@ class AppointmentNotesProvider extends ChangeNotifier {
     return null;
   }
 
+  /// Check if a note already exists for the appointment
+  bool get hasExistingNote => _existingNote != null;
+
   /// Add notes to an appointment
+  /// Note: This should only be called if no note exists yet
   Future<bool> addAppointmentNotes(int appointmentId) async {
     if (!canModifyNotes) {
       error = 'You do not have permission to add notes';
+      notifyListeners();
+      return false;
+    }
+
+    // Check if a note already exists - doctors can only add once, then update
+    if (hasExistingNote) {
+      error = 'A note already exists for this appointment. Please update the existing note instead.';
       notifyListeners();
       return false;
     }
@@ -147,11 +208,8 @@ class AppointmentNotesProvider extends ChangeNotifier {
       );
 
       if (response.status == 'COMPLETED') {
-        // Reload notes to get the new one
-        await loadNotes();
-        
-        // Clear form
-        reset();
+        // Reload notes to get the new one (will auto-load for editing)
+        await loadNotes(appointmentId: appointmentId);
         
         isLoading = false;
         notifyListeners();
@@ -206,11 +264,7 @@ class AppointmentNotesProvider extends ChangeNotifier {
 
       if (response.status == 'COMPLETED') {
         // Reload notes to get the updated one
-        await loadNotes();
-        
-        // Clear form and editing state
-        editingNoteId = null;
-        reset();
+        await loadNotes(appointmentId: appointmentId);
         
         isLoading = false;
         notifyListeners();
@@ -254,7 +308,9 @@ class AppointmentNotesProvider extends ChangeNotifier {
 
       if (response.status == 'COMPLETED') {
         // Reload notes to remove the deleted one
-        await loadNotes();
+        if (_currentAppointmentId != null) {
+          await loadNotes(appointmentId: _currentAppointmentId!);
+        }
         
         isLoading = false;
         notifyListeners();
@@ -293,7 +349,7 @@ class AppointmentNotesProvider extends ChangeNotifier {
     diagnosisController.clear();
     treatmentPlanController.clear();
     observationsController.clear();
-    selectedNoteType = NoteType.GENERAL;
+    selectedNoteType = NoteType.SUBJECTIVE;
     editingNoteId = null;
     error = null;
     notifyListeners();

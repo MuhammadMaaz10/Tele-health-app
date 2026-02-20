@@ -23,7 +23,7 @@ dependencies:
   image_picker:
   firebase_core:
   skeletonizer: ^2.1.2
-
+  pinput: ^6.0.2
 
 
   cupertino_icons: ^1.0.8

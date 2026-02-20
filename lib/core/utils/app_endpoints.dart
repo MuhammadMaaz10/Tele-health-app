@@ -26,7 +26,15 @@ class AppEndpoints {
   static const String cancelAppointment = "$baseUrl/schedule/cancel-appointment";
   static const String confirmAppointment = "$baseUrl/schedule/confirm-appointment";
   static const String addAppointmentNotes = "$baseUrl/appointment";
-  static const String getAppointmentNotes = "$baseUrl/appointment/get-notes-by-email";
+  static const String getAppointmentNotes = "$baseUrl/appointment"; // /notes/{appointmentId}
+  static const String getAppointmentNoteById = "$baseUrl/appointment"; // /{appointmentId}/notes/{noteId}
   static const String updateAppointmentNote = "$baseUrl/appointment";
   static const String deleteAppointmentNote = "$baseUrl/appointment";
+  static const String videoStart = "$baseUrl/appointment"; // /{appointmentId}/video/start
+  static const String videoEnd = "$baseUrl/appointment"; // /{appointmentId}/end
+  
+  // Users
+  static const String getDoctors = "$baseUrl/users/doctors";
+  static const String getPatients = "$baseUrl/users/patients";
+  static const String getNurses = "$baseUrl/users/nurses";
 }

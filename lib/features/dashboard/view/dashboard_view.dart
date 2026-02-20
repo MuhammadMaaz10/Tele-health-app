@@ -27,24 +27,43 @@ class DashboardView extends StatelessWidget {
         backgroundColor: AppColors.backgroundColor,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.dashboard, color: AppColors.primary, size: 24),
-            ),
-            const SizedBox(width: 12),
-            const CustomText(
-              text: 'Dashboard',
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textColor,
-            ),
-          ],
+        title: Consumer<ProfileProvider>(
+          builder: (context, profileProvider, child) {
+            if (profileProvider.isLoadingProfile) {
+              return Row(
+                children: [
+                  Container(height: 32, width: 150, color: AppColors.hintColor.withOpacity(0.3)),
+                ],
+              );
+            }
+
+            final user = profileProvider.user;
+            final userName = user?.username ?? 
+                            (user?.email != null ? user!.email.split('@').first : null) ?? 
+                            (profileProvider.userEmail != null && profileProvider.userEmail!.isNotEmpty 
+                              ? profileProvider.userEmail!.split('@').first 
+                              : null) ??
+                            'User';
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomText(
+                  text: 'Hi, $userName',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textColor,
+                ),
+                CustomText(
+                  text: "Let's finish your task today!",
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.hintColor,
+                ),
+              ],
+            );
+          },
         ),
         actions: [
           Consumer<ProfileProvider>(
@@ -75,8 +94,6 @@ class DashboardView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildWelcomeSection(context),
-                kGap30,
                 _buildStatsCards(context),
                 kGap30,
                 _buildUpcomingAppointments(context),
@@ -87,194 +104,6 @@ class DashboardView extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildWelcomeSection(BuildContext context) {
-    return Consumer<ProfileProvider>(
-      builder: (context, profileProvider, child) {
-        if (profileProvider.isLoadingProfile) {
-          return Skeletonizer(
-            enabled: true,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primary,
-                    AppColors.primary.withOpacity(0.85),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(height: 14, width: 100, color: Colors.white),
-                        const SizedBox(height: 6),
-                        Container(height: 28, width: 150, color: Colors.white),
-                        const SizedBox(height: 8),
-                        Container(height: 14, width: 200, color: Colors.white),
-                        const SizedBox(height: 12),
-                        Container(height: 32, width: 80, color: Colors.white),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        final user = profileProvider.user;
-        final userName = user?.username ?? 
-                        user?.email.split('@').first ?? 
-                        profileProvider.userEmail?.split('@').first ??
-                        'User';
-        final userRole = profileProvider.userRole ?? 'USER';
-        final userEmail = user?.email ?? profileProvider.userEmail ?? '';
-        
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primary,
-                AppColors.primary.withOpacity(0.85),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
-                blurRadius: 25,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Profile Avatar
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
-                    width: 2,
-                  ),
-                ),
-                child: user?.profilePicUrl != null && user!.profilePicUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Image.network(
-                          user.profilePicUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 40,
-                          ),
-                        ),
-                      )
-                    : const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 40,
-                      ),
-              ),
-              const SizedBox(width: 20),
-              // User Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CustomText(
-                      text: 'Welcome back,',
-                      fontSize: 14,
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                    kGap6,
-                    CustomText(
-                      text: userName,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                    if (userEmail.isNotEmpty) ...[
-                      kGap4,
-                      Row(
-                        children: [
-                          Icon(Icons.email_outlined, size: 14, color: Colors.white.withOpacity(0.8)),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: CustomText(
-                              text: userEmail,
-                              fontSize: 13,
-                              color: Colors.white.withOpacity(0.9),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    kGap12,
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.verified_user,
-                            size: 14,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                          const SizedBox(width: 6),
-                          CustomText(
-                            text: userRole,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 

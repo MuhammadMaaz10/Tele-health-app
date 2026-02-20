@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:provider/provider.dart';
 import 'package:device_preview/device_preview.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'core/ui/snackbar_service.dart';
 import 'core/network/api_factory.dart';
 import 'core/utils/shared_preferences_service.dart';
@@ -19,6 +21,11 @@ import 'core/navigation/main_navigation.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
   // IMPORTANT: Set token BEFORE creating providers to ensure it's available for API calls
   // This is especially critical on web/desktop where reload can cause timing issues
   final token = await SharedPreferencesService.getToken();
@@ -33,7 +40,7 @@ void main() async {
 
   runApp(
     DevicePreview(
-      enabled: true, // ✅ Only active in debug mode
+      enabled: false, // ✅ Only active in debug mode
       builder: (context) => MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => SignUpProvider()),

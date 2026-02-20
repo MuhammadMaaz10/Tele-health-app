@@ -7,6 +7,8 @@ import 'package:telehealth_app/shared_widgets/app_button.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/text_field.dart';
 import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
+import 'package:telehealth_app/shared_widgets/searchable_dropdown.dart';
+import 'package:telehealth_app/features/users/controller/users_provider.dart';
 import '../controller/create_appointment_provider.dart';
 import '../controller/appointment_provider.dart';
 
@@ -15,58 +17,88 @@ class CreateAppointmentView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveAuthLayout(
-      title: 'Create Appointment',
-      description: 'Schedule a new appointment with your doctor',
-      showBackButton: true,
-      formContent: Consumer<CreateAppointmentProvider>(
-        builder: (context, provider, child) {
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CustomText(
-                  text: "Create Appointment",
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textColor,
-                ),
-                kGap8,
-                CustomText(
-                  text: "Fill in the details below to schedule an appointment",
-                  color: AppColors.hintColor,
-                ),
-                kGap30,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UsersProvider()),
+      ],
+      child: ResponsiveAuthLayout(
+        title: 'Create Appointment',
+        description: 'Schedule a new appointment with your doctor',
+        showBackButton: true,
+        formContent: Consumer2<CreateAppointmentProvider, UsersProvider>(
+          builder: (context, provider, usersProvider, child) {
+            // Load users when view is built
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (provider.userRole != 'DOCTOR') {
+                usersProvider.loadDoctors();
+              }
+              if (provider.userRole != 'PATIENT') {
+                usersProvider.loadPatients();
+              }
+            });
 
-                // Doctor Email
-                AbsorbPointer(
-                  absorbing: provider.userRole == 'DOCTOR',
-                  child: Opacity(
-                    opacity: provider.userRole == 'DOCTOR' ? 0.6 : 1.0,
-                    child: _field(
-                      context,
-                      "Doctor Email",
-                      controller: provider.doctorEmailController,
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: Icon(Icons.person_outline, color: AppColors.hintColor),
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CustomText(
+                    text: "Create Appointment",
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textColor,
+                  ),
+                  kGap8,
+                  CustomText(
+                    text: "Fill in the details below to schedule an appointment",
+                    color: AppColors.hintColor,
+                  ),
+                  kGap30,
+
+                  // Doctor Email Dropdown
+                  AbsorbPointer(
+                    absorbing: provider.userRole == 'DOCTOR',
+                    child: Opacity(
+                      opacity: provider.userRole == 'DOCTOR' ? 0.6 : 1.0,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: SearchableUserDropdown(
+                          label: "Doctor Email",
+                          hintText: "Search and select a doctor",
+                          users: usersProvider.doctors,
+                          isLoading: usersProvider.isLoadingDoctors,
+                          selectedUser: provider.selectedDoctor,
+                          onUserSelected: (user) {
+                            provider.setSelectedDoctor(user);
+                          },
+                          enabled: provider.userRole != 'DOCTOR',
+                          prefixIcon: Icon(Icons.person_outline, color: AppColors.hintColor),
+                        ),
+                      ),
                     ),
                   ),
-                ),
 
-                // Patient Email
-                AbsorbPointer(
-                  absorbing: provider.userRole == 'PATIENT',
-                  child: Opacity(
-                    opacity: provider.userRole == 'PATIENT' ? 0.6 : 1.0,
-                    child: _field(
-                      context,
-                      "Patient Email",
-                      controller: provider.patientEmailController,
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: Icon(Icons.person_outline, color: AppColors.hintColor),
+                  // Patient Email Dropdown
+                  AbsorbPointer(
+                    absorbing: provider.userRole == 'PATIENT',
+                    child: Opacity(
+                      opacity: provider.userRole == 'PATIENT' ? 0.6 : 1.0,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: SearchableUserDropdown(
+                          label: "Patient Email",
+                          hintText: "Search and select a patient",
+                          users: usersProvider.patients,
+                          isLoading: usersProvider.isLoadingPatients,
+                          selectedUser: provider.selectedPatient,
+                          onUserSelected: (user) {
+                            provider.setSelectedPatient(user);
+                          },
+                          enabled: provider.userRole != 'PATIENT',
+                          prefixIcon: Icon(Icons.person_outline, color: AppColors.hintColor),
+                        ),
+                      ),
                     ),
                   ),
-                ),
 
                 // Description
                 _field(
@@ -189,7 +221,8 @@ class CreateAppointmentView extends StatelessWidget {
               ],
             ),
           );
-        },
+          },
+        ),
       ),
     );
   }

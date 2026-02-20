@@ -25,8 +25,15 @@ class ProfileView extends StatelessWidget {
   }
 }
 
-class _ProfileViewBody extends StatelessWidget {
+class _ProfileViewBody extends StatefulWidget {
   const _ProfileViewBody({Key? key}) : super(key: key);
+
+  @override
+  State<_ProfileViewBody> createState() => _ProfileViewBodyState();
+}
+
+class _ProfileViewBodyState extends State<_ProfileViewBody> {
+  int _selectedTabIndex = 0; // 0 for Personal, 1 for Professional, 2 for Account
 
   @override
   Widget build(BuildContext context) {
@@ -82,229 +89,280 @@ class _ProfileViewBody extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: isDesktop
-            ? _buildDesktopLayout(context)
-            : _buildMobileTabletLayout(context, isTablet),
+        child: Column(
+          children: [
+            // Profile Header
+            _buildProfileHeader(context, isDesktop),
+            // Segmented Control Tabs
+            Padding(
+              padding: EdgeInsets.only(
+                left: isDesktop ? 40 : (isTablet ? 30 : 20),
+                right: isDesktop ? 40 : (isTablet ? 30 : 20),
+                top: 16,
+                bottom: 16,
+              ),
+              child: _buildSegmentedControl(isDesktop),
+            ),
+            // Content based on selected tab
+            Expanded(
+              child: isDesktop
+                  ? _buildDesktopLayout(context)
+                  : _buildMobileTabletLayout(context, isTablet),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildDesktopLayout(BuildContext context) {
-    return Row(
-      children: [
-        // Left Section - Profile Card
-        Expanded(
-          flex: 1,
-          child: Container(
-            color: AppColors.primary.withOpacity(0.05),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 500),
-                child: _buildProfileContent(context, true),
-              ),
-            ),
+  Widget _buildSegmentedControl(bool isDesktop) {
+    final provider = context.watch<ProfileProvider>();
+    final isDoctorOrNurse = provider.userRole == 'DOCTOR' || provider.userRole == 'NURSE';
+    
+    final tabs = isDoctorOrNurse
+        ? [
+            {'label': 'Personal', 'index': 0},
+            {'label': 'Professional', 'index': 1},
+            {'label': 'Account', 'index': 2},
+          ]
+        : [
+            {'label': 'Personal', 'index': 0},
+            {'label': 'Account', 'index': 1},
+          ];
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: isDesktop ? 4 : 6, vertical: isDesktop ? 4 : 6),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundColor,
+          borderRadius: BorderRadius.circular(isDesktop ? 10 : 12),
+          border: Border.all(
+            color: AppColors.lightBorderColor,
+            width: 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        // Right Section - Details
-        Expanded(
-          flex: 1,
-          child: Center(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: _buildProfileDetails(context, true),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: tabs.map((tab) {
+            final isSelected = _selectedTabIndex == tab['index'] as int;
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedTabIndex = tab['index'] as int;
+                });
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? 16 : 20,
+                  vertical: isDesktop ? 10 : 12,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CustomText(
+                      text: tab['label'] as String,
+                      fontSize: isDesktop ? 14 : 15,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? AppColors.textColor : AppColors.hintColor,
+                    ),
+                    SizedBox(height: isDesktop ? 6 : 8),
+                    Container(
+                      width: isSelected
+                          ? (tab['label'] as String).length * (isDesktop ? 6.5 : 7.5)
+                          : 0,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(BuildContext context, bool isDesktop) {
+    return Consumer<ProfileProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoadingProfile) {
+          return Padding(
+            padding: EdgeInsets.all(isDesktop ? 40 : 20),
+            child: Skeletonizer(
+              enabled: true,
+              child: Row(
+                children: [
+                  Container(
+                    width: isDesktop ? 80 : 60,
+                    height: isDesktop ? 80 : 60,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(height: 24, width: 150, color: Colors.white),
+                      const SizedBox(height: 8),
+                      Container(height: 16, width: 200, color: Colors.white),
+                    ],
+                  ),
+                ],
+              ),
             ),
+          );
+        }
+
+        return Padding(
+          padding: EdgeInsets.all(isDesktop ? 40 : 20),
+          child: Row(
+            children: [
+              // Profile Picture
+              Container(
+                width: isDesktop ? 80 : 60,
+                height: isDesktop ? 80 : 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary,
+                      AppColors.primary.withOpacity(0.6),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: provider.user?.profilePicUrl != null
+                      ? ClipOval(
+                          child: Image.network(
+                            provider.user!.profilePicUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildDefaultAvatar(isDesktop),
+                          ),
+                        )
+                      : _buildDefaultAvatar(isDesktop),
+                ),
+              ),
+              const SizedBox(width: 20),
+              // Name and Role
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomText(
+                      text: _getDisplayName(provider.user),
+                      fontSize: isDesktop ? 28 : 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textColor,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary,
+                            AppColors.primary.withOpacity(0.8),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified_user, color: Colors.white, size: 14),
+                          const SizedBox(width: 6),
+                          CustomText(
+                            text: provider.userRole ?? 'USER',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDefaultAvatar([bool isDesktop = false]) {
+    return Icon(
+      Icons.person,
+      size: isDesktop ? 40 : 30,
+      color: AppColors.primary,
+    );
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.only(
+          left: 40,
+          right: 40,
+          top: 0,
+          bottom: 20,
+        ),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: _buildTabContent(context, true),
           ),
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildMobileTabletLayout(BuildContext context, bool isTablet) {
     return SingleChildScrollView(
       child: Padding(
-        padding: EdgeInsets.all(isTablet ? 40 : 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildProfileContent(context, false),
-            kGap30,
-            _buildProfileDetails(context, false),
-          ],
+        padding: EdgeInsets.only(
+          left: isTablet ? 30 : 20,
+          right: isTablet ? 30 : 20,
+          top: 0,
+          bottom: isTablet ? 30 : 20,
         ),
+        child: _buildTabContent(context, false),
       ),
     );
   }
 
-  Widget _buildProfileContent(BuildContext context, bool isDesktop) {
+  Widget _buildTabContent(BuildContext context, bool isDesktop) {
     final provider = context.watch<ProfileProvider>();
-
-    if (provider.isLoadingProfile) {
-      return Skeletonizer(
-        enabled: true,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: isDesktop ? 160 : 130,
-              height: isDesktop ? 160 : 130,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primary,
-                    AppColors.primary.withOpacity(0.6),
-                  ],
-                ),
-              ),
-            ),
-            kGap24,
-            Container(
-              width: 200,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            kGap12,
-            Container(
-              width: 100,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(25),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Profile Picture with gradient border
-        Container(
-          width: isDesktop ? 160 : 130,
-          height: isDesktop ? 160 : 130,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primary,
-                AppColors.primary.withOpacity(0.6),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(4),
-          child: Container(
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-            ),
-            padding: const EdgeInsets.all(3),
-            child: provider.user?.profilePicUrl != null
-                ? ClipOval(
-                    child: Image.network(
-                      provider.user!.profilePicUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          _buildDefaultAvatar(),
-                    ),
-                  )
-                : _buildDefaultAvatar(),
-          ),
-        ),
-        kGap24,
-        // Name
-        CustomText(
-          text: _getDisplayName(provider.user),
-          fontSize: isDesktop ? 32 : 26,
-          fontWeight: FontWeight.w800,
-          color: AppColors.textColor,
-          textAlign: TextAlign.center,
-        ),
-        kGap12,
-        // Role Badge with icon
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primary,
-                AppColors.primary.withOpacity(0.8),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(25),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.verified_user, color: Colors.white, size: 16),
-              const SizedBox(width: 6),
-              CustomText(
-                text: provider.userRole ?? 'USER',
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ],
-          ),
-        ),
-        kGap24,
-        // Email with better styling
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.backgroundColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.lightBorderColor),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.email_outlined, size: 18, color: AppColors.primary),
-              const SizedBox(width: 10),
-              Flexible(
-                child: CustomText(
-                  text: provider.userEmail ?? '',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textColor,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProfileDetails(BuildContext context, bool isDesktop) {
-    final provider = context.watch<ProfileProvider>();
+    final isDoctorOrNurse = provider.userRole == 'DOCTOR' || provider.userRole == 'NURSE';
 
     if (provider.isLoadingProfile) {
       return Column(
@@ -348,16 +406,33 @@ class _ProfileViewBody extends StatelessWidget {
 
     final user = provider.user!;
 
+    if (isDoctorOrNurse) {
+      switch (_selectedTabIndex) {
+        case 0:
+          return _buildPersonalInfoTab(context, user, provider, isDesktop);
+        case 1:
+          return _buildProfessionalInfoTab(context, user, provider, isDesktop);
+        case 2:
+          return _buildAccountInfoTab(context, user, provider, isDesktop);
+        default:
+          return _buildPersonalInfoTab(context, user, provider, isDesktop);
+      }
+    } else {
+      switch (_selectedTabIndex) {
+        case 0:
+          return _buildPersonalInfoTab(context, user, provider, isDesktop);
+        case 1:
+          return _buildAccountInfoTab(context, user, provider, isDesktop);
+        default:
+          return _buildPersonalInfoTab(context, user, provider, isDesktop);
+      }
+    }
+  }
+
+  Widget _buildPersonalInfoTab(BuildContext context, User user, ProfileProvider provider, bool isDesktop) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CustomText(
-          text: 'Profile Information',
-          fontSize: isDesktop ? 24 : 20,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textColor,
-        ),
-        kGap30,
         _buildInfoCard(
           context,
           Icons.person_outline,
@@ -368,25 +443,38 @@ class _ProfileViewBody extends StatelessWidget {
             _buildInfoRow('Gender', user.gender?.toUpperCase()),
             _buildInfoRow('Date of Birth', _formatDate(user.dob)),
             if (user.location != null)
-              _buildInfoRow('Location', user.location!.formatted),
+              _buildInfoRow('Location', user.location!.readableAddress),
           ],
         ),
-        kGap20,
-        if (provider.userRole == 'DOCTOR' || provider.userRole == 'NURSE')
-          _buildInfoCard(
-            context,
-            Icons.medical_services_outlined,
-            'Professional Information',
-            [
-              _buildInfoRow('Specialization', user.specialization),
-              _buildInfoRow('Status', user.enabled ? 'ACTIVE' : 'INACTIVE'),
-              if (user.medicalCertificateUrl != null)
-                _buildInfoRow('Medical Certificate', 'Uploaded'),
-              if (user.educationalCertificateUrl != null)
-                _buildInfoRow('Educational Certificate', 'Uploaded'),
-            ],
-          ),
-        kGap20,
+      ],
+    );
+  }
+
+  Widget _buildProfessionalInfoTab(BuildContext context, User user, ProfileProvider provider, bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoCard(
+          context,
+          Icons.medical_services_outlined,
+          'Professional Information',
+          [
+            _buildInfoRow('Specialization', user.specialization),
+            _buildInfoRow('Status', user.enabled ? 'ACTIVE' : 'INACTIVE'),
+            if (user.medicalCertificateUrl != null)
+              _buildInfoRow('Medical Certificate', 'Uploaded'),
+            if (user.educationalCertificateUrl != null)
+              _buildInfoRow('Educational Certificate', 'Uploaded'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccountInfoTab(BuildContext context, User user, ProfileProvider provider, bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         _buildInfoCard(
           context,
           Icons.account_circle_outlined,
@@ -403,6 +491,7 @@ class _ProfileViewBody extends StatelessWidget {
       ],
     );
   }
+
 
   Widget _buildInfoCard(
     BuildContext context,
@@ -482,13 +571,6 @@ class _ProfileViewBody extends StatelessWidget {
     );
   }
 
-  Widget _buildDefaultAvatar() {
-    return Icon(
-      Icons.person,
-      size: 60,
-      color: AppColors.primary,
-    );
-  }
 
   String _getDisplayName(User? user) {
     if (user == null) return 'User';

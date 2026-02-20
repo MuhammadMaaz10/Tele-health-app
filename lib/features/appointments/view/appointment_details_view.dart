@@ -6,6 +6,7 @@ import 'package:telehealth_app/core/utils/app_sizing.dart';
 import 'package:telehealth_app/shared_widgets/app_button.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import '../controller/appointment_provider.dart';
+import '../controller/video_provider.dart';
 import '../model/appointment_model.dart';
 import 'update_appointment_view.dart';
 import 'appointment_notes_view.dart';
@@ -111,21 +112,8 @@ class AppointmentDetailsView extends StatefulWidget {
   State<AppointmentDetailsView> createState() => _AppointmentDetailsViewState();
 }
 
-class _AppointmentDetailsViewState extends State<AppointmentDetailsView>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _AppointmentDetailsViewState extends State<AppointmentDetailsView> {
+  int _selectedTabIndex = 0; // 0 for Appointment Details, 1 for Notes
 
   @override
   Widget build(BuildContext context) {
@@ -133,44 +121,117 @@ class _AppointmentDetailsViewState extends State<AppointmentDetailsView>
     final isDesktop = screenWidth > 1024;
     final isTablet = screenWidth > 600 && screenWidth <= 1024;
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      appBar: AppBar(
+    return ChangeNotifierProvider(
+      create: (_) => VideoProvider(),
+      child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
-        elevation: 0,
-        title: const CustomText(
-          text: 'Appointment Details',
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textColor,
+        appBar: AppBar(
+          backgroundColor: AppColors.backgroundColor,
+          elevation: 0,
+          title: const CustomText(
+            text: 'Appointment Details',
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textColor,
+          ),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.hintColor,
-          indicatorColor: AppColors.primary,
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Segmented Control Tabs
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? 40 : (isTablet ? 30 : 20),
+                  vertical: 16,
+                ),
+                child: _buildSegmentedControl(isDesktop),
+              ),
+              // Content based on selected tab
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: isDesktop ? 40 : (isTablet ? 30 : 20),
+                    right: isDesktop ? 40 : (isTablet ? 30 : 20),
+                    top: 0,
+                    bottom: isDesktop ? 40 : (isTablet ? 30 : 20),
+                  ),
+                  child: _selectedTabIndex == 0
+                      ? _buildAppointmentDetailsTab(context, isDesktop, isTablet)
+                      : _buildNotesTab(context),
+                ),
+              ),
+            ],
           ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-          ),
-          tabs: const [
-            Tab(text: 'Appointment Details'),
-            Tab(text: 'Notes'),
-          ],
         ),
       ),
-      body: SafeArea(
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildAppointmentDetailsTab(context, isDesktop, isTablet),
-            _buildNotesTab(context),
+    );
+  }
+
+  Widget _buildSegmentedControl(bool isDesktop) {
+    final tabs = [
+      {'label': 'Appointment Details', 'index': 0},
+      {'label': 'Notes', 'index': 1},
+    ];
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: isDesktop ? 4 : 6, vertical: isDesktop ? 4 : 6),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundColor,
+          borderRadius: BorderRadius.circular(isDesktop ? 10 : 12),
+          border: Border.all(
+            color: AppColors.lightBorderColor,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
           ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: tabs.map((tab) {
+            final isSelected = _selectedTabIndex == tab['index'] as int;
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedTabIndex = tab['index'] as int;
+                });
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? 16 : 20,
+                  vertical: isDesktop ? 10 : 12,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CustomText(
+                      text: tab['label'] as String,
+                      fontSize: isDesktop ? 14 : 15,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? AppColors.textColor : AppColors.hintColor,
+                    ),
+                    SizedBox(height: isDesktop ? 6 : 8),
+                    Container(
+                      width: isSelected
+                          ? (tab['label'] as String).length * (isDesktop ? 6.5 : 7.5)
+                          : 0,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
@@ -182,34 +243,32 @@ class _AppointmentDetailsViewState extends State<AppointmentDetailsView>
     bool isTablet,
   ) {
     return SingleChildScrollView(
-      child: Padding(
-        padding: EdgeInsets.all(isDesktop ? 40 : (isTablet ? 30 : 20)),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: isDesktop ? 800 : double.infinity,
-            ),
-            child: Consumer<AppointmentProvider>(
-              builder: (context, provider, child) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Status Badge
-                    _buildStatusBadge(widget.appointment.status),
-                    kGap24,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: isDesktop ? 800 : double.infinity,
+          ),
+          child: Consumer<AppointmentProvider>(
+            builder: (context, provider, child) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Status Badge
+                  _buildStatusBadge(widget.appointment.status),
+                  kGap24,
 
-                    // Single Combined Card with all appointment details
-                    _buildCombinedDetailsCard(context, provider.userRole),
+                  // Single Combined Card with all appointment details
+                  _buildCombinedDetailsCard(context, provider.userRole),
 
-                    kGap24,
+                  kGap24,
 
-                    // Action Buttons (only show if there are actions available)
-                    if (_hasActions(widget.appointment, provider.userRole))
-                      _buildActions(context, provider),
-                  ],
-                );
-              },
-            ),
+                  // Action Buttons (only show if there are actions available)
+                  if (_hasActions(widget.appointment, provider.userRole))
+                    _buildActions(context, provider),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -335,6 +394,36 @@ class _AppointmentDetailsViewState extends State<AppointmentDetailsView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Video Call Buttons (only for confirmed/upcoming appointments)
+        if (widget.appointment.isUpcoming &&
+            widget.appointment.status == AppointmentStatus.CONFIRMED)
+          Consumer<VideoProvider>(
+            builder: (context, videoProvider, child) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!videoProvider.isVideoActive)
+                    CustomButton(
+                      text: 'Start Video Call',
+                      onPressed: videoProvider.isLoading
+                          ? null
+                          : () => _handleStartVideo(context, videoProvider),
+                      backgroundColor: Colors.green,
+                    )
+                  else
+                    CustomButton(
+                      text: 'End Video Call',
+                      onPressed: videoProvider.isLoading
+                          ? null
+                          : () => _handleEndVideo(context, videoProvider),
+                      backgroundColor: AppColors.error,
+                    ),
+                  kGap16,
+                ],
+              );
+            },
+          ),
+
         // Reschedule Button (only for upcoming appointments)
         if (widget.appointment.isUpcoming &&
             widget.appointment.status != AppointmentStatus.CANCELLED)
@@ -575,6 +664,57 @@ class _AppointmentDetailsViewState extends State<AppointmentDetailsView>
       if (success) {
         Get.back();
       }
+    }
+  }
+
+  Future<void> _handleStartVideo(
+    BuildContext context,
+    VideoProvider videoProvider,
+  ) async {
+    final success = await videoProvider.startVideo(widget.appointment.id);
+    if (context.mounted) {
+      if (success && videoProvider.videoStartResponse != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Video call started. Room: ${videoProvider.videoStartResponse!.roomName}',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        // TODO: Navigate to video call screen with roomName and accessToken
+        // You can use the videoProvider.videoStartResponse!.roomName and 
+        // videoProvider.videoStartResponse!.accessToken to initialize the video call
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              videoProvider.error ?? 'Failed to start video call',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleEndVideo(
+    BuildContext context,
+    VideoProvider videoProvider,
+  ) async {
+    final success = await videoProvider.endVideo(widget.appointment.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Video call ended successfully'
+                : videoProvider.error ?? 'Failed to end video call',
+          ),
+          backgroundColor: success ? Colors.green : AppColors.error,
+        ),
+      );
     }
   }
 }

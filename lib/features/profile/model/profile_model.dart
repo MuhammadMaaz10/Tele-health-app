@@ -114,11 +114,13 @@ class User {
 class Location {
   final double latitude;
   final double longitude;
+  String? _readableAddress; // Cache for reverse geocoded address
 
   Location({
     required this.latitude,
     required this.longitude,
-  });
+    String? readableAddress,
+  }) : _readableAddress = readableAddress;
 
   factory Location.fromJson(Map<String, dynamic> json) {
     return Location(
@@ -129,6 +131,16 @@ class Location {
 
   String get formatted {
     return '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
+  }
+
+  /// Set the readable address (from reverse geocoding)
+  void setReadableAddress(String address) {
+    _readableAddress = address;
+  }
+
+  /// Get readable address if available, otherwise return coordinates
+  String get readableAddress {
+    return _readableAddress ?? formatted;
   }
 }
 

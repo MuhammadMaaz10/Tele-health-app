@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:pinput/pinput.dart';
 import 'package:telehealth_app/core/network/network_exceptions.dart';
 import 'package:telehealth_app/core/theme/app_colors.dart';
 import 'package:telehealth_app/core/utils/app_sizing.dart';
@@ -10,8 +12,6 @@ import 'package:telehealth_app/features/auth/services/auth_api.dart';
 import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
 import 'package:telehealth_app/core/navigation/main_navigation.dart';
 import 'package:telehealth_app/core/network/api_factory.dart';
-
-import '../../../../shared_widgets/otp_text_field.dart';
 
 class VerifyEmailView extends StatefulWidget {
   final String email;
@@ -24,9 +24,7 @@ class VerifyEmailView extends StatefulWidget {
 }
 
 class _VerifyEmailViewState extends State<VerifyEmailView> {
-  final List<TextEditingController> _otpControllers =
-      List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  final TextEditingController _otpController = TextEditingController();
   final AuthApi _authApi = AuthApi();
 
   bool _isButtonEnabled = false;
@@ -34,11 +32,32 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
   bool _isResending = false;
   String? _error;
 
+  @override
+  void initState() {
+    super.initState();
+    // Listen to controller changes to handle paste operations
+    _otpController.addListener(_handleTextChange);
+  }
+
+  void _handleTextChange() {
+    final text = _otpController.text;
+    // If text length exceeds 6, trim it to 6 digits
+    if (text.length > 6) {
+      final digitsOnly = text.replaceAll(RegExp(r'[^0-9]'), '');
+      if (digitsOnly.length > 6) {
+        _otpController.value = TextEditingValue(
+          text: digitsOnly.substring(0, 6),
+          selection: TextSelection.collapsed(offset: 6),
+        );
+      }
+    }
+    _validateOTP(_otpController.text);
+  }
+
   // Check if all fields are filled
-  void _validateOTP() {
+  void _validateOTP(String? value) {
     setState(() {
-      _isButtonEnabled =
-          _otpControllers.every((controller) => controller.text.isNotEmpty);
+      _isButtonEnabled = value != null && value.length == 6;
       _error = null;
     });
   }
@@ -46,7 +65,7 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
   void _onVerifyPressed() async {
     FocusScope.of(context).unfocus();
 
-    final otp = _otpControllers.map((e) => e.text).join();
+    final otp = _otpController.text;
 
     setState(() {
       _isLoading = true;
@@ -103,12 +122,8 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
 
   @override
   void dispose() {
-    for (var controller in _otpControllers) {
-      controller.dispose();
-    }
-    for (var focus in _focusNodes) {
-      focus.dispose();
-    }
+    _otpController.removeListener(_handleTextChange);
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -134,23 +149,88 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
             fontSize: 14,
           ),
           kGap40,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(6, (index) {
-              return OtpTextField(
-                controller: _otpControllers[index],
-                focusNode: _focusNodes[index],
-                onChanged: (value) {
-                  if (value.isNotEmpty && index < 5) {
-                    FocusScope.of(context).requestFocus(_focusNodes[index + 1]);
-                  } else if (value.isEmpty && index > 0) {
-                    FocusScope.of(context).requestFocus(_focusNodes[index - 1]);
-                  }
-                  _validateOTP();
-                },
-                autoFocus: index == 0,
-              );
-            }),
+          Pinput(
+            length: 6,
+            controller: _otpController,
+            defaultPinTheme: PinTheme(
+              width: 56,
+              height: 56,
+              textStyle: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.lightBorderColor, width: 1.5),
+              ),
+            ),
+            focusedPinTheme: PinTheme(
+              width: 56,
+              height: 56,
+              textStyle: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+            ),
+            submittedPinTheme: PinTheme(
+              width: 56,
+              height: 56,
+              textStyle: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary, width: 2),
+              ),
+            ),
+            errorPinTheme: PinTheme(
+              width: 56,
+              height: 56,
+              textStyle: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red, width: 2),
+              ),
+            ),
+            pinputAutovalidateMode: PinputAutovalidateMode.onSubmit,
+            showCursor: true,
+            keyboardType: TextInputType.number,
+            hapticFeedbackType: HapticFeedbackType.lightImpact,
+            enableSuggestions: false,
+            autofocus: true,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
+            onCompleted: (pin) {
+              _validateOTP(pin);
+            },
+            onChanged: (value) {
+              _validateOTP(value);
+            },
           ),
           if (_error != null) ...[
             kGap8,

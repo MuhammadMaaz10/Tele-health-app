@@ -1,4 +1,8 @@
 enum NoteType {
+  SUBJECTIVE,
+  OBJECTIVE,
+  ASSESSMENT,
+  PLAN,
   GENERAL,
   FOLLOW_UP,
   EMERGENCY,
@@ -6,21 +10,38 @@ enum NoteType {
 
   static NoteType fromString(String type) {
     switch (type.toUpperCase()) {
+      case 'SUBJECTIVE':
+        return NoteType.SUBJECTIVE;
+      case 'OBJECTIVE':
+        return NoteType.OBJECTIVE;
+      case 'ASSESSMENT':
+        return NoteType.ASSESSMENT;
+      case 'PLAN':
+        return NoteType.PLAN;
       case 'GENERAL':
         return NoteType.GENERAL;
       case 'FOLLOW_UP':
+      case 'FOLLOWUP':
         return NoteType.FOLLOW_UP;
       case 'EMERGENCY':
         return NoteType.EMERGENCY;
       case 'ROUTINE':
         return NoteType.ROUTINE;
       default:
-        return NoteType.GENERAL;
+        return NoteType.SUBJECTIVE; // Default to SUBJECTIVE as per backend
     }
   }
 
   String get displayName {
     switch (this) {
+      case NoteType.SUBJECTIVE:
+        return 'Subjective';
+      case NoteType.OBJECTIVE:
+        return 'Objective';
+      case NoteType.ASSESSMENT:
+        return 'Assessment';
+      case NoteType.PLAN:
+        return 'Plan';
       case NoteType.GENERAL:
         return 'General';
       case NoteType.FOLLOW_UP:
@@ -35,6 +56,7 @@ enum NoteType {
 
 class AppointmentNote {
   final int id;
+  final String? noteType;
   final String clinicalNotes;
   final String diagnosis;
   final String treatmentPlan;
@@ -43,6 +65,7 @@ class AppointmentNote {
 
   AppointmentNote({
     required this.id,
+    this.noteType,
     required this.clinicalNotes,
     required this.diagnosis,
     required this.treatmentPlan,
@@ -53,6 +76,7 @@ class AppointmentNote {
   factory AppointmentNote.fromJson(Map<String, dynamic> json) {
     return AppointmentNote(
       id: json['id'] as int? ?? 0,
+      noteType: json['noteType'] as String?,
       clinicalNotes: json['clinicalNotes'] as String? ?? '',
       diagnosis: json['diagnosis'] as String? ?? '',
       treatmentPlan: json['treatmentPlan'] as String? ?? '',
@@ -73,6 +97,7 @@ class AppointmentNote {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'noteType': noteType,
       'clinicalNotes': clinicalNotes,
       'diagnosis': diagnosis,
       'treatmentPlan': treatmentPlan,
@@ -135,6 +160,40 @@ class AppointmentNoteResponse {
     return AppointmentNoteResponse(
       message: json['message'] as String? ?? '',
       status: json['status'] as String? ?? '',
+    );
+  }
+}
+
+class VideoStartResponse {
+  final String roomName;
+  final String accessToken;
+
+  VideoStartResponse({
+    required this.roomName,
+    required this.accessToken,
+  });
+
+  factory VideoStartResponse.fromJson(Map<String, dynamic> json) {
+    return VideoStartResponse(
+      roomName: json['roomName'] as String? ?? '',
+      accessToken: json['accessToken'] as String? ?? '',
+    );
+  }
+}
+
+class VideoEndResponse {
+  final int appointmentId;
+  final bool status;
+
+  VideoEndResponse({
+    required this.appointmentId,
+    required this.status,
+  });
+
+  factory VideoEndResponse.fromJson(Map<String, dynamic> json) {
+    return VideoEndResponse(
+      appointmentId: json['appointmentId'] as int? ?? 0,
+      status: json['status'] as bool? ?? false,
     );
   }
 }

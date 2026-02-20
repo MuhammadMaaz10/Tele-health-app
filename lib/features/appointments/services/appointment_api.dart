@@ -155,7 +155,7 @@ class AppointmentApi {
     }
   }
 
-  /// Add notes to an appointment
+  /// Add/Update notes to an appointment (uses PUT for both add and update)
   Future<AppointmentNoteResponse> addAppointmentNotes({
     required int appointmentId,
     required String noteType,
@@ -176,14 +176,14 @@ class AppointmentApi {
 
       debugPrint('========== API REQUEST ==========');
       debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: POST');
+      debugPrint('Method: PUT');
       debugPrint('Request Body:');
       requestData.forEach((key, value) {
         debugPrint('  $key: $value');
       });
       debugPrint('=================================\n');
 
-      final Response response = await _client.post(
+      final Response response = await _client.put(
         endpoint,
         data: requestData,
       );
@@ -195,15 +195,17 @@ class AppointmentApi {
     }
   }
 
-  /// Get all appointment notes by user email
-  Future<List<AppointmentNote>> getAppointmentNotesByEmail() async {
+  /// Get appointment notes by appointmentId
+  Future<List<AppointmentNote>> getAppointmentNotesByAppointmentId(int appointmentId) async {
     try {
+      final endpoint = '${AppEndpoints.getAppointmentNotes}/notes/$appointmentId';
+      
       debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: ${AppEndpoints.getAppointmentNotes}');
+      debugPrint('Endpoint: $endpoint');
       debugPrint('Method: GET');
       debugPrint('=================================\n');
 
-      final Response response = await _client.get(AppEndpoints.getAppointmentNotes);
+      final Response response = await _client.get(endpoint);
 
       if (response.data is List) {
         final List<dynamic> data = response.data as List;
@@ -212,16 +214,44 @@ class AppointmentApi {
             .toList();
       }
 
+      // If response is a single object (not a list), wrap it in a list
+      if (response.data is Map) {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
+        return [AppointmentNote.fromJson(data)];
+      }
+
       return [];
     } on NetworkExceptions {
       rethrow;
     }
   }
 
-  /// Update an appointment note
-  Future<AppointmentNoteResponse> updateAppointmentNote({
+  /// Get specific appointment note by appointmentId and noteId
+  Future<AppointmentNote> getAppointmentNoteById({
     required int appointmentId,
     required int noteId,
+  }) async {
+    try {
+      final endpoint = '${AppEndpoints.getAppointmentNoteById}/$appointmentId/notes/$noteId';
+
+      debugPrint('========== API REQUEST ==========');
+      debugPrint('Endpoint: $endpoint');
+      debugPrint('Method: GET');
+      debugPrint('=================================\n');
+
+      final Response response = await _client.get(endpoint);
+
+      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
+      return AppointmentNote.fromJson(data);
+    } on NetworkExceptions {
+      rethrow;
+    }
+  }
+
+  /// Update an appointment note (uses PUT to same endpoint as add, without noteId)
+  Future<AppointmentNoteResponse> updateAppointmentNote({
+    required int appointmentId,
+    required int noteId, // Note: noteId is kept for backward compatibility but not used in endpoint
     required String noteType,
     required String clinicalNotes,
     required String diagnosis,
@@ -229,7 +259,8 @@ class AppointmentApi {
     required String observations,
   }) async {
     try {
-      final endpoint = '${AppEndpoints.updateAppointmentNote}/$appointmentId/notes/$noteId';
+      // Use same endpoint as add - PUT to /appointment/{appointmentId}/notes
+      final endpoint = '${AppEndpoints.updateAppointmentNote}/$appointmentId/notes';
       final requestData = {
         'noteType': noteType,
         'clinicalNotes': clinicalNotes,
@@ -276,6 +307,48 @@ class AppointmentApi {
 
       final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
       return AppointmentNoteResponse.fromJson(data);
+    } on NetworkExceptions {
+      rethrow;
+    }
+  }
+
+  /// Start video call for an appointment
+  Future<VideoStartResponse> startVideo({
+    required int appointmentId,
+  }) async {
+    try {
+      final endpoint = '${AppEndpoints.videoStart}/$appointmentId/video/start';
+
+      debugPrint('========== API REQUEST ==========');
+      debugPrint('Endpoint: $endpoint');
+      debugPrint('Method: POST');
+      debugPrint('=================================\n');
+
+      final Response response = await _client.post(endpoint);
+
+      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
+      return VideoStartResponse.fromJson(data);
+    } on NetworkExceptions {
+      rethrow;
+    }
+  }
+
+  /// End video call for an appointment
+  Future<VideoEndResponse> endVideo({
+    required int appointmentId,
+  }) async {
+    try {
+      final endpoint = '${AppEndpoints.videoEnd}/$appointmentId/end';
+
+      debugPrint('========== API REQUEST ==========');
+      debugPrint('Endpoint: $endpoint');
+      debugPrint('Method: POST');
+      debugPrint('=================================\n');
+
+      final Response response = await _client.post(endpoint);
+
+      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
+      return VideoEndResponse.fromJson(data);
     } on NetworkExceptions {
       rethrow;
     }

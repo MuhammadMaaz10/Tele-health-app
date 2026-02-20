@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:telehealth_app/core/network/network_exceptions.dart';
 import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
 import 'package:telehealth_app/features/appointments/services/appointment_api.dart';
+import 'package:telehealth_app/features/profile/model/profile_model.dart';
 import '../model/appointment_model.dart';
 
 class CreateAppointmentProvider extends ChangeNotifier {
@@ -22,6 +23,8 @@ class CreateAppointmentProvider extends ChangeNotifier {
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   Appointment? createdAppointment;
+  User? selectedDoctor;
+  User? selectedPatient;
 
   CreateAppointmentProvider() {
     _initialize();
@@ -31,16 +34,26 @@ class CreateAppointmentProvider extends ChangeNotifier {
     userEmail = await SharedPreferencesService.getEmail();
     userRole = await SharedPreferencesService.getRole();
     
-    // Pre-fill patient email if user is a patient
-    if (userRole == 'PATIENT' && userEmail != null) {
-      patientEmailController.text = userEmail!;
+    notifyListeners();
+  }
+
+  void setSelectedDoctor(User? doctor) {
+    selectedDoctor = doctor;
+    if (doctor != null) {
+      doctorEmailController.text = doctor.email;
+    } else {
+      doctorEmailController.clear();
     }
-    
-    // Pre-fill doctor email if user is a doctor
-    if (userRole == 'DOCTOR' && userEmail != null) {
-      doctorEmailController.text = userEmail!;
+    notifyListeners();
+  }
+
+  void setSelectedPatient(User? patient) {
+    selectedPatient = patient;
+    if (patient != null) {
+      patientEmailController.text = patient.email;
+    } else {
+      patientEmailController.clear();
     }
-    
     notifyListeners();
   }
 

@@ -24,7 +24,7 @@ class AppointmentNotesView extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) {
         final provider = AppointmentNotesProvider();
-        provider.loadNotes();
+        provider.loadNotes(appointmentId: appointmentId);
         return provider;
       },
       child: isEmbeddedInTab
@@ -91,7 +91,7 @@ class AppointmentNotesView extends StatelessWidget {
                     kGap20,
                     CustomButton(
                       text: 'Retry',
-                      onPressed: () => provider.loadNotes(),
+                      onPressed: () => provider.loadNotes(appointmentId: appointmentId),
                       backgroundColor: AppColors.primary,
                     ),
                   ],
@@ -120,16 +120,16 @@ class AppointmentNotesView extends StatelessWidget {
 
               // Add/Edit New Note Section
               CustomText(
-                text: provider.editingNoteId == null ? "Add New Note" : "Edit Note",
+                text: provider.hasExistingNote ? "Update Note" : "Add New Note",
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textColor,
               ),
               kGap8,
               CustomText(
-                text: provider.editingNoteId == null
-                    ? "Fill in the details below to add a note"
-                    : "Update the note details below",
+                text: provider.hasExistingNote
+                    ? "Update the note details below"
+                    : "Fill in the details below to add a note",
                 color: AppColors.hintColor,
               ),
               kGap30,
@@ -205,10 +205,11 @@ class AppointmentNotesView extends StatelessWidget {
 
               // Add/Update Note Button
               Row(
+                mainAxisSize: MainAxisSize.max,
                 children: [
                   Expanded(
                     child: CustomButton(
-                      text: provider.editingNoteId == null ? "Add Note" : "Update Note",
+                      text: provider.hasExistingNote ? "Update Note" : "Add Note",
                       isLoading: provider.isLoading,
                       onPressed: (provider.isLoading || !provider.canModifyNotes)
                           ? null
@@ -223,19 +224,26 @@ class AppointmentNotesView extends StatelessWidget {
                                 );
                                 return;
                               }
-                              final success = provider.editingNoteId == null
-                                  ? await provider.addAppointmentNotes(appointmentId)
-                                  : await provider.updateAppointmentNote(
+                              
+                              // If note exists, update it; otherwise add new
+                              final noteId = provider.hasExistingNote && provider.notes.isNotEmpty
+                                  ? (provider.editingNoteId ?? provider.notes.first.id)
+                                  : 0;
+                              
+                              final success = provider.hasExistingNote
+                                  ? await provider.updateAppointmentNote(
                                       appointmentId,
-                                      provider.editingNoteId!,
-                                    );
+                                      noteId,
+                                    )
+                                  : await provider.addAppointmentNotes(appointmentId);
+                              
                               if (context.mounted) {
                                 if (success) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text(provider.editingNoteId == null
-                                          ? "Note added successfully ✅"
-                                          : "Note updated successfully ✅"),
+                                      content: Text(provider.hasExistingNote
+                                          ? "Note updated successfully ✅"
+                                          : "Note added successfully ✅"),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
@@ -254,19 +262,26 @@ class AppointmentNotesView extends StatelessWidget {
                           : AppColors.primary,
                     ),
                   ),
-                  if (provider.editingNoteId != null) ...[
-                    kGap16,
-                    CustomButton(
-                      text: "Cancel",
-                      isLoading: false,
-                      onPressed: provider.isLoading
-                          ? null
-                          : () {
-                              provider.cancelEditing();
-                            },
-                      backgroundColor: AppColors.hintColor,
+                  // Only show cancel button if editing and note exists
+                  if (provider.hasExistingNote && provider.editingNoteId != null)
+                    const SizedBox(width: 16),
+                  if (provider.hasExistingNote && provider.editingNoteId != null)
+                    SizedBox(
+                      width: 120,
+                      child: CustomButton(
+                        text: "Cancel",
+                        isLoading: false,
+                        onPressed: provider.isLoading
+                            ? null
+                            : () {
+                                // Reload the note to reset form
+                                if (provider.notes.isNotEmpty) {
+                                  provider.loadNoteForEditing(provider.notes.first);
+                                }
+                              },
+                        backgroundColor: AppColors.hintColor,
+                      ),
                     ),
-                  ],
                 ],
               ),
             ],
@@ -318,6 +333,8 @@ class AppointmentNotesView extends StatelessWidget {
                 color: AppColors.hintColor,
               ),
               // Show edit/delete buttons only for doctors and nurses (not patients)
+              // Note: Since doctors can only have one note per appointment, 
+              // the edit button will load the note into the form below
               if (provider.canModifyNotes)
                 Row(
                   mainAxisSize: MainAxisSize.min,
