@@ -42,6 +42,99 @@ class _ProfileViewBodyState extends State<_ProfileViewBody> {
     final isTablet = screenWidth > 600 && screenWidth <= 1024;
 
     return Scaffold(
+      backgroundColor: Colors.white,
+      body: isDesktop
+          ? _buildDesktopLayout(context)
+          : _buildMobileLayout(context, isTablet),
+    );
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    return Column(
+      children: [
+        // AppBar aligned with sidebar header
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Row(
+            children: [
+              const Expanded(
+                child: CustomText(
+                  text: 'Profile',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textColor,
+                ),
+              ),
+              Consumer<ProfileProvider>(
+                builder: (context, provider, child) {
+                  return IconButton(
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      color: AppColors.primary,
+                    ),
+                    onPressed: provider.user != null
+                        ? () => _navigateToEditProfile(context, provider)
+                        : null,
+                    tooltip: 'Edit Profile',
+                  );
+                },
+              ),
+              Consumer<ProfileProvider>(
+                builder: (context, provider, child) {
+                  return IconButton(
+                    icon: provider.isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.error),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.logout,
+                            color: AppColors.error,
+                          ),
+                    onPressed: provider.isLoading
+                        ? null
+                        : () => _handleLogout(context, provider),
+                    tooltip: 'Logout',
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        // Scrollable content
+        Expanded(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  // Profile Header
+                  _buildProfileHeader(context, true),
+                  // Segmented Control Tabs
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: _buildSegmentedControl(true),
+                  ),
+                  // Content based on selected tab
+                  _buildDesktopContentLayout(context),
+                  const SizedBox(height: 40),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context, bool isTablet) {
+    return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundColor,
@@ -92,22 +185,20 @@ class _ProfileViewBodyState extends State<_ProfileViewBody> {
         child: Column(
           children: [
             // Profile Header
-            _buildProfileHeader(context, isDesktop),
+            _buildProfileHeader(context, false),
             // Segmented Control Tabs
             Padding(
               padding: EdgeInsets.only(
-                left: isDesktop ? 40 : (isTablet ? 30 : 20),
-                right: isDesktop ? 40 : (isTablet ? 30 : 20),
+                left: isTablet ? 30 : 20,
+                right: isTablet ? 30 : 20,
                 top: 16,
                 bottom: 16,
               ),
-              child: _buildSegmentedControl(isDesktop),
+              child: _buildSegmentedControl(false),
             ),
             // Content based on selected tab
             Expanded(
-              child: isDesktop
-                  ? _buildDesktopLayout(context)
-                  : _buildMobileTabletLayout(context, isTablet),
+              child: _buildMobileTabletLayout(context, isTablet),
             ),
           ],
         ),
@@ -326,22 +417,12 @@ class _ProfileViewBodyState extends State<_ProfileViewBody> {
     );
   }
 
-  Widget _buildDesktopLayout(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.only(
-          left: 40,
-          right: 40,
-          top: 0,
-          bottom: 20,
-        ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: _buildTabContent(context, true),
-          ),
-        ),
+  Widget _buildDesktopContentLayout(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: _buildTabContent(context, true),
       ),
     );
   }

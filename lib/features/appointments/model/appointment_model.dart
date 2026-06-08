@@ -40,7 +40,9 @@ enum AppointmentStatus {
 
 class Appointment {
   final int id;
+  final String doctorName;
   final String doctorAssigned;
+  final String patientName;
   final String patientBooked;
   final DateTime startTime;
   final DateTime endTime;
@@ -53,7 +55,9 @@ class Appointment {
 
   Appointment({
     required this.id,
+    required this.doctorName,
     required this.doctorAssigned,
+    required this.patientName,
     required this.patientBooked,
     required this.startTime,
     required this.endTime,
@@ -72,7 +76,9 @@ class Appointment {
 
     return Appointment(
       id: json['id'] as int? ?? 0,
+      doctorName: json['doctorName'] as String? ?? '',
       doctorAssigned: json['doctorAssigned'] as String? ?? '',
+      patientName: json['patientName'] as String? ?? '',
       patientBooked: json['patientBooked'] as String? ?? '',
       startTime: startTimeParsed ?? DateTime.now(),
       endTime: endTimeParsed ?? DateTime.now().add(const Duration(hours: 1)),
@@ -90,7 +96,9 @@ class Appointment {
   static DateTime? _parseDateTime(String? dateString) {
     if (dateString == null || dateString.isEmpty) return null;
     try {
-      return DateTime.parse(dateString);
+      // Supabase timestamptz can arrive with timezone offset/UTC ("Z").
+      // Normalize to device local time for consistent UI display and checks.
+      return DateTime.parse(dateString).toLocal();
     } catch (e) {
       return null;
     }
@@ -99,7 +107,9 @@ class Appointment {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'doctorName': doctorName,
       'doctorAssigned': doctorAssigned,
+      'patientName': patientName,
       'patientBooked': patientBooked,
       'startTime': startTime.toIso8601String(),
       'endTime': endTime.toIso8601String(),
@@ -119,7 +129,17 @@ class Appointment {
 
   String get formattedTime {
     final time = startTime;
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    int hour = time.hour;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'pm' : 'am';
+
+    if (hour == 0) {
+      hour = 12;
+    } else if (hour > 12) {
+      hour -= 12;
+    }
+
+    return '$hour:$minute$period';
   }
 
   String get formattedDateTime {
@@ -134,8 +154,31 @@ class Appointment {
     return endTime.isBefore(DateTime.now());
   }
 
+  bool get isOngoing {
+    final now = DateTime.now();
+    return now.isAfter(startTime) && now.isBefore(endTime);
+  }
+
+  bool get isCallWindowOpen {
+    final now = DateTime.now();
+    final joinWindowStart = startTime.subtract(const Duration(minutes: 5));
+    return now.isAfter(joinWindowStart) && now.isBefore(endTime);
+  }
+
   Duration get duration {
     return endTime.difference(startTime);
+  }
+
+  String get doctorDisplayName {
+    if (doctorName.trim().isNotEmpty) return doctorName.trim();
+    final email = doctorAssigned.trim();
+    return email.contains('@') ? email.split('@').first : email;
+  }
+
+  String get patientDisplayName {
+    if (patientName.trim().isNotEmpty) return patientName.trim();
+    final email = patientBooked.trim();
+    return email.contains('@') ? email.split('@').first : email;
   }
 }
 

@@ -1,3 +1,20 @@
+/// Reads the first non-empty string from [map] using case-insensitive key matching.
+/// Helps with Supabase/PostgREST rows where key casing or aliases may vary.
+String? readLooseString(Map<String, dynamic> map, List<String> keyCandidates) {
+  for (final wanted in keyCandidates) {
+    final w = wanted.toLowerCase();
+    for (final e in map.entries) {
+      if (e.key.toLowerCase() == w) {
+        final v = e.value;
+        if (v == null) continue;
+        final s = v is String ? v.trim() : v.toString().trim();
+        if (s.isNotEmpty) return s;
+      }
+    }
+  }
+  return null;
+}
+
 class ProfileModel {
   final bool success;
   final String message;
@@ -108,6 +125,13 @@ class User {
   String get primaryRole {
     if (roles.isEmpty) return 'USER';
     return roles.first.roleName;
+  }
+
+  /// Primary line in user pickers (e.g. appointment directory): name when present, else email.
+  String get directoryListTitle {
+    final n = username?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    return email;
   }
 }
 

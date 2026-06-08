@@ -1,16 +1,15 @@
 import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
-import 'package:telehealth_app/features/auth/services/auth_api.dart';
-import 'package:dio/dio.dart';
-import '../model/profile_model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:telehealth_app/core/supabase/supabase_profile_service.dart';
+import '../model/profile_model.dart' as pm;
 
 class EditProfileProvider extends ChangeNotifier {
-  final AuthApi _authApi = AuthApi();
 
   // Controllers
   final usernameController = TextEditingController();
@@ -50,7 +49,7 @@ class EditProfileProvider extends ChangeNotifier {
     "OTHER",
   ];
 
-  void initializeFromUser(User user, String role, String email) {
+  void initializeFromUser(pm.User user, String role, String email) {
     userRole = role;
     userEmail = email;
     
@@ -176,140 +175,101 @@ class EditProfileProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final formData = FormData();
+      final client = Supabase.instance.client;
+      final uid = client.auth.currentUser?.id;
+      if (uid == null) {
+        throw Exception('Not signed in');
+      }
 
-      // Required fields - always sent in background
-      // Email is required, use stored email or fallback
       final emailToSend = userEmail ?? '';
       if (emailToSend.isEmpty) {
         throw Exception('Email is required but not available');
       }
-      formData.fields.add(MapEntry('email', emailToSend));
-      // Password field - required but sent as empty string
-      formData.fields.add(MapEntry('password', ''));
 
-      // Text fields (all optional)
+      String? profileUrl;
+      if (kIsWeb && profileImageBytes != null) {
+        profileUrl = await SupabaseProfileService.uploadBytesForUser(
+          uid: uid,
+          bucket: 'avatars',
+          bytes: profileImageBytes!,
+          filename: 'profile.png',
+        );
+      } else if (!kIsWeb && profileImage != null) {
+        final bytes = await profileImage!.readAsBytes();
+        profileUrl = await SupabaseProfileService.uploadBytesForUser(
+          uid: uid,
+          bucket: 'avatars',
+          bytes: bytes,
+          filename: profileImage!.path,
+        );
+      }
+
+      Future<String?> uploadDoc(PlatformFile? f, String fallbackName) async {
+        if (f == null) return null;
+        final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
+        if (bytes == null) return null;
+        return SupabaseProfileService.uploadBytesForUser(
+          uid: uid,
+          bucket: 'documents',
+          bytes: bytes,
+          filename: f.name.isNotEmpty ? f.name : fallbackName,
+        );
+      }
+
+      final idPath = await uploadDoc(idDocumentFile, 'id.pdf');
+      final medPath = (userRole == 'DOCTOR' || userRole == 'NURSE')
+          ? await uploadDoc(medicalCertificateFile, 'medical.pdf')
+          : null;
+      final eduPath = (userRole == 'DOCTOR' || userRole == 'NURSE')
+          ? await uploadDoc(educationalCertificateFile, 'edu.pdf')
+          : null;
+
+      final dob = dobController.text.trim().isNotEmpty
+          ? SupabaseProfileService.parseDobDayFirst(dobController.text.trim())
+          : null;
+      final dobStr = dob != null
+          ? '${dob.year}-${dob.month.toString().padLeft(2, '0')}-${dob.day.toString().padLeft(2, '0')}'
+          : null;
+
+      final fields = <String, dynamic>{'email': emailToSend};
       if (usernameController.text.trim().isNotEmpty) {
-        formData.fields.add(MapEntry('username', usernameController.text.trim()));
+        fields['username'] = usernameController.text.trim();
       }
       if (phoneController.text.trim().isNotEmpty) {
-        formData.fields.add(MapEntry('phone', phoneController.text.trim()));
+        fields['phone'] = phoneController.text.trim();
       }
       if (genderController.text.trim().isNotEmpty) {
-        formData.fields.add(MapEntry('gender', genderController.text.trim().toLowerCase()));
+        fields['gender'] = genderController.text.trim().toLowerCase();
       }
-      if (dobController.text.trim().isNotEmpty) {
-        formData.fields.add(MapEntry('dateOfBirth', _convertToApiDateFormat(dobController.text.trim())));
+      if (dobStr != null) fields['dob'] = dobStr;
+      if (latitude != null) fields['latitude'] = latitude;
+      if (longitude != null) fields['longitude'] = longitude;
+      if ((userRole == 'DOCTOR' || userRole == 'NURSE') &&
+          specializationController.text.trim().isNotEmpty) {
+        fields['specialization'] = specializationController.text.trim();
       }
-      if (userRole == 'DOCTOR' || userRole == 'NURSE') {
-        if (specializationController.text.trim().isNotEmpty) {
-          formData.fields.add(MapEntry('specialization', specializationController.text.trim()));
-        }
-      }
+      if (profileUrl != null) fields['profile_pic_url'] = profileUrl;
+      if (idPath != null) fields['id_document_url'] = idPath;
+      if (medPath != null) fields['medical_certificate_url'] = medPath;
+      if (eduPath != null) fields['educational_certificate_url'] = eduPath;
 
-      // Profile picture
-      if (kIsWeb) {
-        if (profileImageBytes != null) {
-          formData.files.add(
-            MapEntry(
-              'profilePicture',
-              MultipartFile.fromBytes(
-                profileImageBytes!,
-                filename: "profile.png",
-              ),
-            ),
-          );
-        }
-      } else {
-        if (profileImage != null) {
-          formData.files.add(
-            MapEntry(
-              'profilePicture',
-              await MultipartFile.fromFile(
-                profileImage!.path,
-                filename: profileImage!.path.split(Platform.pathSeparator).last,
-              ),
-            ),
-          );
-        }
-      }
+      await SupabaseProfileService.updateProfileRow(userId: uid, fields: fields);
 
-      // Documents (optional)
-      Future<void> addFile(String key, PlatformFile? file) async {
-        if (file == null) return;
-
-        if (kIsWeb) {
-          formData.files.add(
-            MapEntry(
-              key,
-              MultipartFile.fromBytes(
-                file.bytes!,
-                filename: file.name,
-              ),
-            ),
-          );
-        } else {
-          formData.files.add(
-            MapEntry(
-              key,
-              await MultipartFile.fromFile(
-                file.path!,
-                filename: file.name,
-              ),
-            ),
-          );
-        }
-      }
-
-      await addFile("idDocument", idDocumentFile);
-      if (userRole == 'DOCTOR' || userRole == 'NURSE') {
-        await addFile("medicalCertificate", medicalCertificateFile);
-        await addFile("educationalCertificate", educationalCertificateFile);
-      }
-
-      // Update API call
-      await _authApi.updateUser(
-        formData: formData,
-        latitude: latitude,
-        longitude: longitude,
-      );
-
-      // Success
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Profile updated successfully ✅")),
-        );
-      }
-    } on NetworkExceptions catch (e) {
-      error = e.message;
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
         );
       }
     } catch (e) {
       error = 'Failed to update profile. Please try again.';
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error!)),
+          SnackBar(content: Text('$error ($e)')),
         );
       }
     } finally {
       isLoading = false;
       notifyListeners();
-    }
-  }
-
-  String _convertToApiDateFormat(String dateStr) {
-    // Convert DD-MM-YYYY to YYYY-MM-DD
-    try {
-      final parts = dateStr.split('-');
-      if (parts.length == 3) {
-        return '${parts[2]}-${parts[1]}-${parts[0]}';
-      }
-      return dateStr;
-    } catch (e) {
-      return dateStr;
     }
   }
 

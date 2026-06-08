@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
-// Network calls for reset/otp can be wired once email/otp are collected in UI
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:telehealth_app/core/auth/auth_error_mapper.dart';
 
 class SetNewPasswordProvider extends ChangeNotifier {
   final newPasswordController = TextEditingController();
@@ -11,17 +11,16 @@ class SetNewPasswordProvider extends ChangeNotifier {
 
   String? errorNewPassword;
   String? errorConfirmPassword;
+  bool isLoading = false;
 
   bool get obscureNewPassword => _obscureNewPassword;
   bool get obscureConfirmPassword => _obscureConfirmPassword;
 
   bool get isFormValid =>
       newPasswordController.text.isNotEmpty &&
-          confirmPasswordController.text.isNotEmpty &&
-          newPasswordController.text == confirmPasswordController.text &&
-          newPasswordController.text.length >= 6;
-
-  // final AuthApi _authApi = AuthApi();
+      confirmPasswordController.text.isNotEmpty &&
+      newPasswordController.text == confirmPasswordController.text &&
+      newPasswordController.text.length >= 6;
 
   void toggleNewPasswordVisibility() {
     _obscureNewPassword = !_obscureNewPassword;
@@ -56,13 +55,58 @@ class SetNewPasswordProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void submit(BuildContext context) {
+  /// Requires a recovery session (after user follows the email link) or any active session.
+  Future<void> submit(BuildContext context) async {
     validatePasswords();
     if (!isFormValid) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Password updated successfully!")),
-    );
+    if (Supabase.instance.client.auth.currentSession == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Open the password reset link from your email first, then return here.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(
+          password: newPasswordController.text.trim(),
+        ),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password updated successfully')),
+        );
+      }
+    } on AuthException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              userMessageForAuthException(e, flow: AuthFlow.signup),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   @override
@@ -72,4 +116,3 @@ class SetNewPasswordProvider extends ChangeNotifier {
     super.dispose();
   }
 }
-

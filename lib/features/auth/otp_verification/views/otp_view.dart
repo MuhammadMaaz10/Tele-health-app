@@ -2,22 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:pinput/pinput.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:telehealth_app/core/auth/auth_debug_log.dart';
+import 'package:telehealth_app/core/auth/auth_error_mapper.dart';
+import 'package:telehealth_app/core/supabase/pending_registration.dart';
 import 'package:telehealth_app/core/theme/app_colors.dart';
 import 'package:telehealth_app/core/utils/app_sizing.dart';
 import 'package:telehealth_app/shared_widgets/app_button.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
-import 'package:telehealth_app/features/auth/services/auth_api.dart';
-import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
 import 'package:telehealth_app/core/navigation/main_navigation.dart';
-import 'package:telehealth_app/core/network/api_factory.dart';
+import 'package:telehealth_app/core/supabase/supabase_session_sync.dart';
+import 'package:telehealth_app/features/auth/registration/controller/doctor_registration_provider.dart';
+import 'package:telehealth_app/features/auth/registration/controller/patient_profile_provider.dart';
 
 class VerifyEmailView extends StatefulWidget {
   final String email;
-  final bool isRegistration; // To determine which OTP verification endpoint to use
+  final bool isRegistration;
 
-  const VerifyEmailView({Key? key, required this.email, this.isRegistration = false}) : super(key: key);
+  /// Passed for registration OTP: `true` when [auth.users] must be created (new email).
+  final bool shouldCreateAuthUser;
+
+  const VerifyEmailView({
+    Key? key,
+    required this.email,
+    this.isRegistration = false,
+    this.shouldCreateAuthUser = false,
+  }) : super(key: key);
 
   @override
   State<VerifyEmailView> createState() => _VerifyEmailViewState();
@@ -25,7 +37,6 @@ class VerifyEmailView extends StatefulWidget {
 
 class _VerifyEmailViewState extends State<VerifyEmailView> {
   final TextEditingController _otpController = TextEditingController();
-  final AuthApi _authApi = AuthApi();
 
   bool _isButtonEnabled = false;
   bool _isLoading = false;
@@ -72,47 +83,70 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
       _error = null;
     });
 
+    authDebug(
+      'VerifyOTP',
+      'start verifyOTP',
+      'email=${widget.email.trim()} isRegistration=${widget.isRegistration} tokenLen=${otp.trim().length}',
+    );
     try {
-      Map<String, dynamic> response;
-      if (widget.isRegistration) {
-        response = await _authApi.verifyRegisterOtp(email: widget.email, otp: otp);
-      } else {
-        response = await _authApi.verifyLoginOtp(email: widget.email, otp: otp);
-      }
+      await Supabase.instance.client.auth.verifyOTP(
+        email: widget.email.trim(),
+        token: otp.trim(),
+        type: OtpType.email,
+      );
+      authDebug('VerifyOTP', 'verifyOTP OK, applying session');
 
-      // Extract token and role from response
-      final String? token = response['token'] as String?;
-      final String? role = response['role'] as String?;
+      await SupabaseSessionSync.applySession(
+        Supabase.instance.client.auth.currentSession,
+      );
+      authDebug('VerifyOTP', 'session applied');
 
-      if (token != null && token.isNotEmpty) {
-        // Save token, email, and role to SharedPreferences
-        await SharedPreferencesService.saveToken(token);
-        await SharedPreferencesService.saveEmail(widget.email);
-        if (role != null) {
-          await SharedPreferencesService.saveRole(role);
+      try {
+        if (PendingRegistration.completePatientProfileAfterOtp) {
+          PendingRegistration.completePatientProfileAfterOtp = false;
+          authDebug('VerifyOTP', 'saving pending PATIENT profile');
+          await context.read<PatientProfileProvider>().savePatientProfileToSupabase(context);
+        } else if (PendingRegistration.completeDoctorProfileAfterOtp) {
+          PendingRegistration.completeDoctorProfileAfterOtp = false;
+          authDebug('VerifyOTP', 'saving pending DOCTOR/NURSE profile');
+          await context.read<DoctorRegistrationProvider>().saveDoctorProfileToSupabase(context);
         }
-        // Set token in API factory for authenticated requests
-        ApiFactory.setAuthToken(token);
+      } catch (e, st) {
+        authDebugException('VerifyOTP', e, st);
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _error = 'Could not save your profile. Fix issues and try again.';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Profile save failed: $e')),
+          );
+        }
+        return;
       }
 
+      authDebug('VerifyOTP', 'navigating to MainNavigation');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("OTP Verified Successfully ✅")),
         );
-        // Navigate to main navigation (with bottom nav bar)
         Get.offAll(() => const MainNavigation());
       }
-    } on NetworkExceptions catch (e) {
+    } on AuthException catch (e, st) {
+      authDebugException('VerifyOTP', e, st);
+      final friendly = userMessageForAuthException(e, flow: AuthFlow.verifyOtp);
+      authDebug('VerifyOTP', 'mapped user message', friendly);
       setState(() {
-        _error = e.message;
+        _error = friendly;
         _isLoading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
+          SnackBar(content: Text(friendly)),
         );
       }
-    } catch (e) {
+    } catch (e, st) {
+      authDebugException('VerifyOTP', e, st);
       setState(() {
         _error = 'An error occurred. Please try again.';
         _isLoading = false;
@@ -257,29 +291,37 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
                   });
 
                   try {
-                    if (widget.isRegistration) {
-                      // Resend registration OTP
-                      await _authApi.resendOtp(email: widget.email);
-                    } else {
-                      // Resend login OTP
-                      await _authApi.login(email: widget.email);
-                    }
+                    authDebug(
+                      'VerifyOTP',
+                      'resend signInWithOtp',
+                      'email=${widget.email.trim()} shouldCreateUser=${widget.shouldCreateAuthUser}',
+                    );
+                    await Supabase.instance.client.auth.signInWithOtp(
+                      email: widget.email.trim(),
+                      shouldCreateUser: widget.shouldCreateAuthUser,
+                    );
+                    authDebug('VerifyOTP', 'resend OK');
 
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text("OTP Resent Successfully")),
                       );
                     }
-                  } on NetworkExceptions catch (e) {
+                  } on AuthException catch (e, st) {
+                    authDebugException('VerifyOTP', e, st);
+                    final friendly =
+                        userMessageForAuthException(e, flow: AuthFlow.resendOtp);
+                    authDebug('VerifyOTP', 'resend mapped message', friendly);
                     setState(() {
-                      _error = e.message;
+                      _error = friendly;
                     });
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.message)),
+                        SnackBar(content: Text(friendly)),
                       );
                     }
-                  } catch (e) {
+                  } catch (e, st) {
+                    authDebugException('VerifyOTP', e, st);
                     setState(() {
                       _error = 'Failed to resend OTP. Please try again.';
                     });

@@ -1,4 +1,4 @@
-package com.example.telehealth_app
+package com.telehealth_app
 
 import io.flutter.embedding.android.FlutterActivity
 

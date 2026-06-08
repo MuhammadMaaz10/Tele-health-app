@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:telehealth_app/core/theme/app_colors.dart';
 import 'package:telehealth_app/core/utils/app_sizing.dart';
@@ -8,7 +7,6 @@ import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/text_field.dart';
 import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
 import '../controller/patient_profile_provider.dart';
-import '../../otp_verification/views/otp_view.dart';
 
 class PatientRegistrationView extends StatelessWidget {
   final String email;
@@ -220,10 +218,8 @@ class _CompleteProfileBody extends StatelessWidget {
               isLoading: provider.isLoading,
               onPressed: provider.isFormValid && !provider.isLoading
                   ? () async {
-                await provider.submitRegistration(context);
-                Get.to(() =>
-                    VerifyEmailView(email: email, isRegistration: true));
-              }
+                      await provider.submitRegistration(context);
+                    }
                   : null,
               backgroundColor: provider.isFormValid && !provider.isLoading
                   ? AppColors.primary

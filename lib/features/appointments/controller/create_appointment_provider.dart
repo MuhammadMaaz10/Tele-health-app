@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show PostgrestException, Supabase;
 import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
 import 'package:telehealth_app/features/appointments/services/appointment_api.dart';
 import 'package:telehealth_app/features/profile/model/profile_model.dart';
@@ -23,8 +24,12 @@ class CreateAppointmentProvider extends ChangeNotifier {
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   Appointment? createdAppointment;
-  User? selectedDoctor;
   User? selectedPatient;
+  User? selectedDoctor;
+  List<User> patients = [];
+  List<User> doctors = [];
+  bool isLoadingPatients = false;
+  bool isLoadingDoctors = false;
 
   CreateAppointmentProvider() {
     _initialize();
@@ -34,6 +39,32 @@ class CreateAppointmentProvider extends ChangeNotifier {
     userEmail = await SharedPreferencesService.getEmail();
     userRole = await SharedPreferencesService.getRole();
     
+    // Auto-set patient email if user is a patient
+    if (userRole == 'PATIENT' && userEmail != null) {
+      patientEmailController.text = userEmail!;
+    }
+    
+    // Auto-set doctor email if user is a doctor or nurse
+    if ((userRole == 'DOCTOR' || userRole == 'NURSE') && userEmail != null) {
+      doctorEmailController.text = userEmail!;
+    }
+
+    if (isDoctorFlow) {
+      await loadPatients();
+    } else if (isPatientFlow) {
+      await loadDoctors();
+    }
+    
+    notifyListeners();
+  }
+
+  void setSelectedPatient(User? patient) {
+    selectedPatient = patient;
+    if (patient != null) {
+      patientEmailController.text = patient.email;
+    } else {
+      patientEmailController.clear();
+    }
     notifyListeners();
   }
 
@@ -47,14 +78,75 @@ class CreateAppointmentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setSelectedPatient(User? patient) {
-    selectedPatient = patient;
-    if (patient != null) {
-      patientEmailController.text = patient.email;
-    } else {
-      patientEmailController.clear();
-    }
+  bool get isDoctorFlow => userRole == 'DOCTOR' || userRole == 'NURSE';
+  bool get isPatientFlow => userRole == 'PATIENT';
+
+  Future<void> loadPatients() async {
+    isLoadingPatients = true;
+    error = null;
     notifyListeners();
+
+    try {
+      final raw = await Supabase.instance.client.rpc('app_get_patients_directory');
+      final loadedPatients = _mapDirectoryUsers(raw);
+      loadedPatients.sort((a, b) => a.email.compareTo(b.email));
+      patients = loadedPatients;
+    } on PostgrestException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'Failed to load patients. Please try again.';
+    } finally {
+      isLoadingPatients = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadDoctors() async {
+    isLoadingDoctors = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      final raw = await Supabase.instance.client.rpc('app_get_doctors_directory');
+      final loadedDoctors = _mapDirectoryUsers(raw);
+      loadedDoctors.sort((a, b) => a.email.compareTo(b.email));
+      doctors = loadedDoctors;
+    } on PostgrestException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'Failed to load doctors. Please try again.';
+    } finally {
+      isLoadingDoctors = false;
+      notifyListeners();
+    }
+  }
+
+  List<User> _mapDirectoryUsers(dynamic raw) {
+    if (raw is! List) return const <User>[];
+    final users = <User>[];
+    for (final row in raw) {
+      final map = Map<String, dynamic>.from(row as Map);
+      final email = readLooseString(map, ['email']) ?? '';
+      if (email.isEmpty) continue;
+      users.add(
+        User(
+          id: 0,
+          email: email,
+          username: readLooseString(map, [
+            'username',
+            'user_name',
+            'name',
+            'full_name',
+            'fullname',
+            'display_name',
+            'displayname',
+          ]),
+          enabled: (map['enabled'] as bool?) ?? true,
+          roles: const [],
+        ),
+      );
+    }
+    return users;
   }
 
   /// Validate that appointment date is within 14 days
@@ -205,12 +297,15 @@ class CreateAppointmentProvider extends ChangeNotifier {
         shortDescription: descriptionController.text.trim(),
         date: _formatDateForApi(date),
         time: _formatTimeForInput(time),
-        appointmentStartTime: startDateTime.toIso8601String(),
-        appointmentEndTime: endDateTime.toIso8601String(),
+        // Send UTC ISO strings with timezone suffix (Z) to avoid DB timezone ambiguity.
+        appointmentStartTime: startDateTime.toUtc().toIso8601String(),
+        appointmentEndTime: endDateTime.toUtc().toIso8601String(),
       );
 
       if (response.appointment != null) {
         createdAppointment = response.appointment;
+        final createdId = createdAppointment!.id;
+        await _appointmentApi.confirmAppointment(createdId);
         isLoading = false;
         notifyListeners();
         return true;
@@ -220,7 +315,7 @@ class CreateAppointmentProvider extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoading = false;
       notifyListeners();
@@ -235,13 +330,17 @@ class CreateAppointmentProvider extends ChangeNotifier {
 
   /// Reset form
   void reset() {
-    doctorEmailController.clear();
+    if (userRole != 'DOCTOR' && userRole != 'NURSE') {
+      doctorEmailController.clear();
+    }
     patientEmailController.clear();
     descriptionController.clear();
     dateController.clear();
     timeController.clear();
     selectedDate = null;
     selectedTime = null;
+    selectedPatient = null;
+    selectedDoctor = null;
     createdAppointment = null;
     error = null;
     notifyListeners();

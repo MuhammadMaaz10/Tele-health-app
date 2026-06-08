@@ -167,16 +167,31 @@ class AppointmentNoteResponse {
 class VideoStartResponse {
   final String roomName;
   final String accessToken;
+  final String appId;
+  final int uid;
+  final DateTime? expiresAt;
 
   VideoStartResponse({
     required this.roomName,
     required this.accessToken,
+    required this.appId,
+    required this.uid,
+    this.expiresAt,
   });
 
   factory VideoStartResponse.fromJson(Map<String, dynamic> json) {
+    DateTime? parsedExpiry;
+    final expiry = json['expiresAt'] ?? json['expires_at'];
+    if (expiry is String && expiry.isNotEmpty) {
+      parsedExpiry = DateTime.tryParse(expiry);
+    }
+
     return VideoStartResponse(
-      roomName: json['roomName'] as String? ?? '',
-      accessToken: json['accessToken'] as String? ?? '',
+      roomName: (json['roomName'] ?? json['room_name']) as String? ?? '',
+      accessToken: (json['accessToken'] ?? json['access_token']) as String? ?? '',
+      appId: (json['appId'] ?? json['app_id']) as String? ?? '',
+      uid: (json['uid'] as num?)?.toInt() ?? 0,
+      expiresAt: parsedExpiry,
     );
   }
 }

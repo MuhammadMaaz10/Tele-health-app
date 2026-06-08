@@ -10,7 +10,11 @@ import 'package:telehealth_app/features/profile/controller/profile_provider.dart
 import 'package:telehealth_app/features/appointments/model/appointment_model.dart';
 import 'package:telehealth_app/features/appointments/controller/create_appointment_provider.dart';
 import 'package:telehealth_app/features/appointments/view/create_appointment_view.dart';
+import 'package:telehealth_app/features/appointments/view/appointment_details_view.dart';
+import 'package:telehealth_app/core/navigation/navigation_controller.dart';
 import 'package:get/get.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DashboardView extends StatelessWidget {
   const DashboardView({super.key});
@@ -19,8 +23,112 @@ class DashboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 1024;
-    final isTablet = screenWidth > 600 && screenWidth <= 1024;
 
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: isDesktop
+          ? _buildDesktopLayout(context)
+          : _buildMobileLayout(context),
+    );
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    return Column(
+      children: [
+        // AppBar aligned with sidebar header
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Row(
+            children: [
+              Expanded(
+                child: Consumer<ProfileProvider>(
+                  builder: (context, profileProvider, child) {
+                    if (profileProvider.isLoadingProfile) {
+                      return Row(
+                        children: [
+                          Container(height: 32, width: 150, color: AppColors.hintColor.withOpacity(0.3)),
+                        ],
+                      );
+                    }
+
+                    final user = profileProvider.user;
+                    final userName = user?.username ?? 
+                                    (user?.email != null ? user!.email.split('@').first : null) ?? 
+                                    (profileProvider.userEmail != null && profileProvider.userEmail!.isNotEmpty 
+                                      ? profileProvider.userEmail!.split('@').first 
+                                      : null) ??
+                                    'User';
+                    
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CustomText(
+                          text: 'Hi, $userName',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textColor,
+                        ),
+                        CustomText(
+                          text: "Let's finish your task today!",
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.hintColor,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              Consumer<ProfileProvider>(
+                builder: (context, provider, child) {
+                  return IconButton(
+                    icon: const Icon(Icons.notifications_outlined, color: AppColors.primary),
+                    onPressed: () {},
+                    tooltip: 'Notifications',
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        // Scrollable content
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              final appointmentProvider = Provider.of<AppointmentProvider>(context, listen: false);
+              final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+              await Future.wait([
+                appointmentProvider.loadAppointments(),
+                profileProvider.loadProfile(),
+              ]);
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildStatsCards(context),
+                  kGap30,
+                  _buildUpcomingAppointments(context),
+                  kGap30,
+                  _buildQuickActions(context),
+                  const SizedBox(height: 40),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600 && screenWidth <= 1024;
+    
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
@@ -90,7 +198,7 @@ class DashboardView extends StatelessWidget {
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.all(isDesktop ? 40 : isTablet ? 30 : 20),
+            padding: EdgeInsets.all(isTablet ? 30 : 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -136,9 +244,9 @@ class DashboardView extends StatelessWidget {
           );
         }
 
-        final upcoming = appointmentProvider.upcomingAppointments.length;
+        final cancelled = appointmentProvider.getAppointmentsByStatus(AppointmentStatus.CANCELLED).length;
         final total = appointmentProvider.appointments.length;
-        final pending = appointmentProvider.getAppointmentsByStatus(AppointmentStatus.PENDING).length;
+        final completed = appointmentProvider.getAppointmentsByStatus(AppointmentStatus.COMPLETED).length;
         final confirmed = appointmentProvider.getAppointmentsByStatus(AppointmentStatus.CONFIRMED).length;
 
         return Column(
@@ -152,44 +260,205 @@ class DashboardView extends StatelessWidget {
             ),
             kGap12,
             // Horizontal Row for all stats cards
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.calendar_today,
-                    title: 'Total',
-                    value: total.toString(),
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.upcoming,
-                    title: 'Upcoming',
-                    value: upcoming.toString(),
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.pending,
-                    title: 'Pending',
-                    value: pending.toString(),
-                    color: Colors.orange,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.check_circle,
-                    title: 'Confirmed',
-                    value: confirmed.toString(),
-                    color: Colors.green,
-                  ),
-                ),
-              ],
+            Builder(
+              builder: (context) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                final isMobile = screenWidth < 768;
+                final isDesktop = screenWidth > 1024;
+                final cardSpacing = isMobile ? 6.0 : 8.0;
+                
+                // For desktop, constrain the width and center the cards
+                if (isDesktop) {
+                  return Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1000),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              context: context,
+                              icon: FontAwesomeIcons.calendarCheck,
+                              title: 'Total',
+                              value: total.toString(),
+                              color: AppColors.primary,
+                              onTap: () => _navigateToAppointmentsWithFilter(context, null),
+                            ),
+                          ),
+                          SizedBox(width: cardSpacing),
+                          Expanded(
+                            child: _buildStatCard(
+                              context: context,
+                              icon: FontAwesomeIcons.circleCheck,
+                              title: 'Confirmed',
+                              value: confirmed.toString(),
+                              color: Colors.green,
+                              onTap: () => _navigateToAppointmentsWithFilter(
+                                context,
+                                AppointmentStatus.CONFIRMED,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: cardSpacing),
+                          Expanded(
+                            child: _buildStatCard(
+                              context: context,
+                              icon: FontAwesomeIcons.clipboardCheck,
+                              title: 'Completed',
+                              value: completed.toString(),
+                              color: Colors.green,
+                              onTap: () => _navigateToAppointmentsWithFilter(
+                                context,
+                                AppointmentStatus.COMPLETED,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: cardSpacing),
+                          Expanded(
+                            child: _buildStatCard(
+                              context: context,
+                              icon: FontAwesomeIcons.calendarXmark,
+                              title: 'Cancelled',
+                              value: cancelled.toString(),
+                              color: Colors.red,
+                              onTap: () => _navigateToAppointmentsWithFilter(
+                                context,
+                                AppointmentStatus.CANCELLED,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                
+                // For mobile, show 2 cards per row
+                if (isMobile) {
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Calculate width: (available width - spacing between cards) / 2
+                      final cardWidth = (constraints.maxWidth - cardSpacing) / 2;
+                      return Wrap(
+                        spacing: cardSpacing,
+                        runSpacing: cardSpacing,
+                        children: [
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildStatCard(
+                              context: context,
+                              icon: FontAwesomeIcons.calendarCheck,
+                              title: 'Total',
+                              value: total.toString(),
+                              color: AppColors.primary,
+                              onTap: () => _navigateToAppointmentsWithFilter(context, null),
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildStatCard(
+                              context: context,
+                              icon: FontAwesomeIcons.circleCheck,
+                              title: 'Confirmed',
+                              value: confirmed.toString(),
+                              color: Colors.green,
+                              onTap: () => _navigateToAppointmentsWithFilter(
+                                context,
+                                AppointmentStatus.CONFIRMED,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildStatCard(
+                              context: context,
+                              icon: FontAwesomeIcons.clipboardCheck,
+                              title: 'Completed',
+                              value: completed.toString(),
+                              color: Colors.green,
+                              onTap: () => _navigateToAppointmentsWithFilter(
+                                context,
+                                AppointmentStatus.COMPLETED,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildStatCard(
+                              context: context,
+                              icon: FontAwesomeIcons.calendarXmark,
+                              title: 'Cancelled',
+                              value: cancelled.toString(),
+                              color: Colors.red,
+                              onTap: () => _navigateToAppointmentsWithFilter(
+                                context,
+                                AppointmentStatus.CANCELLED,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+                
+                // For tablet, use full width row
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        context: context,
+                        icon: FontAwesomeIcons.calendarCheck,
+                        title: 'Total',
+                        value: total.toString(),
+                        color: AppColors.primary,
+                        onTap: () => _navigateToAppointmentsWithFilter(context, null),
+                      ),
+                    ),
+                    SizedBox(width: cardSpacing),
+                    Expanded(
+                      child: _buildStatCard(
+                        context: context,
+                        icon: FontAwesomeIcons.circleCheck,
+                        title: 'Confirmed',
+                        value: confirmed.toString(),
+                        color: Colors.green,
+                        onTap: () => _navigateToAppointmentsWithFilter(
+                          context,
+                          AppointmentStatus.CONFIRMED,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: cardSpacing),
+                    Expanded(
+                      child: _buildStatCard(
+                        context: context,
+                        icon: FontAwesomeIcons.clipboardCheck,
+                        title: 'Completed',
+                        value: completed.toString(),
+                        color: Colors.green,
+                        onTap: () => _navigateToAppointmentsWithFilter(
+                          context,
+                          AppointmentStatus.COMPLETED,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: cardSpacing),
+                    Expanded(
+                      child: _buildStatCard(
+                        context: context,
+                        icon: FontAwesomeIcons.calendarXmark,
+                        title: 'Cancelled',
+                        value: cancelled.toString(),
+                        color: Colors.red,
+                        onTap: () => _navigateToAppointmentsWithFilter(
+                          context,
+                          AppointmentStatus.CANCELLED,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         );
@@ -198,52 +467,79 @@ class DashboardView extends StatelessWidget {
   }
 
   Widget _buildStatCard({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String value,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.lightBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(isMobile ? 12 : 14),
+        child: Container(
+          padding: EdgeInsets.all(isMobile ? 14 : 16),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(isMobile ? 12 : 14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(icon, color: color, size: 18),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Leading Icon
+              Container(
+                padding: EdgeInsets.all(isMobile ? 8 : 10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
+                ),
+                child: Icon(icon, color: color, size: isMobile ? 18 : 22),
+              ),
+              SizedBox(width: isMobile ? 12 : 16),
+              // Title and Value
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Label (Title) - smaller, grey text on top
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: isMobile ? 12 : 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Value - large, bold text below
+                    Text(
+                      value,
+                      style: GoogleFonts.inter(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          CustomText(
-            text: value,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textColor,
-          ),
-          const SizedBox(height: 2),
-          CustomText(
-            text: title,
-            fontSize: 11,
-            color: AppColors.hintColor,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -267,8 +563,7 @@ class DashboardView extends StatelessWidget {
                 ),
                 TextButton(
                   onPressed: () {
-                    // Navigate to appointments tab
-                    // This will be handled by parent navigation
+                    _navigateToAppointmentsList(context);
                   },
                   child: const CustomText(
                     text: 'View All',
@@ -284,7 +579,7 @@ class DashboardView extends StatelessWidget {
               )
             else if (upcoming.isEmpty)
               Container(
-                padding: const EdgeInsets.all(40),
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
@@ -292,96 +587,208 @@ class DashboardView extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 64, color: AppColors.hintColor),
-                    kGap16,
+                    Icon(Icons.calendar_today_outlined, size: 48, color: AppColors.hintColor),
+                    kGap12,
                     CustomText(
                       text: 'No upcoming appointments',
-                      fontSize: 16,
+                      fontSize: 14,
                       color: AppColors.hintColor,
                     ),
                   ],
                 ),
               )
             else
-              ...upcoming.map((appointment) => _buildAppointmentCard(appointment)),
+              SizedBox(
+                height: 180,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: upcoming.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        right: index < upcoming.length - 1 ? 12 : 0,
+                      ),
+                      child: _buildAppointmentCard(context, upcoming[index]),
+                    );
+                  },
+                ),
+              ),
           ],
         );
       },
     );
   }
 
-  Widget _buildAppointmentCard(Appointment appointment) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.lightBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+  Widget _buildAppointmentCard(BuildContext context, Appointment appointment) {
+    return Consumer<AppointmentProvider>(
+      builder: (context, appointmentProvider, child) {
+        final userRole = appointmentProvider.userRole;
+        final isPatient = userRole == 'PATIENT';
+        
+        // For patients: show doctor info, For doctors/nurses: show patient info
+        final personName = isPatient
+            ? appointment.doctorDisplayName
+            : appointment.patientDisplayName;
+        final personEmail = isPatient
+            ? appointment.doctorAssigned
+            : appointment.patientBooked;
+        final personLabel = isPatient ? 'Doctor' : 'Patient';
+        
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _navigateToAppointmentDetails(context, appointment),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: 320,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.lightBorderColor),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Person Name at the top (Doctor for patients, Patient for doctors)
+                  Row(
+                    children: [
+                      Icon(Icons.person_outline, size: 16, color: AppColors.hintColor),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: CustomText(
+                          text: isPatient ? 'Dr. $personName' : 'Patient: $personName',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textColor,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      _buildStatusChip(appointment.status),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Date, Time section
+                  Row(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CustomText(
+                              text: appointment.startTime.day.toString(),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                            CustomText(
+                              text: _getMonthName(appointment.startTime.month),
+                              fontSize: 9,
+                              color: AppColors.primary,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.access_time, size: 12, color: AppColors.hintColor),
+                                const SizedBox(width: 4),
+                                CustomText(
+                                  text: appointment.formattedTime,
+                                  fontSize: 12,
+                                  color: AppColors.hintColor,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            CustomText(
+                              text: personLabel,
+                              fontSize: 10,
+                              color: AppColors.hintColor,
+                            ),
+                            const SizedBox(height: 2),
+                            CustomText(
+                              text: personEmail,
+                              fontSize: 11,
+                              color: AppColors.hintColor,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Description at the bottom
+                  CustomText(
+                    text: appointment.description,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textColor,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CustomText(
-                  text: appointment.startTime.day.toString(),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                ),
-                CustomText(
-                  text: _getMonthName(appointment.startTime.month),
-                  fontSize: 10,
-                  color: AppColors.primary,
-                ),
-              ],
-            ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CustomText(
-                  text: appointment.description,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textColor,
-                ),
-                kGap4,
-                Row(
-                  children: [
-                    Icon(Icons.access_time, size: 14, color: AppColors.hintColor),
-                    const SizedBox(width: 4),
-                    CustomText(
-                      text: appointment.formattedTime,
-                      fontSize: 14,
-                      color: AppColors.hintColor,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          _buildStatusChip(appointment.status),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  void _navigateToAppointmentDetails(BuildContext context, Appointment appointment) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth > 1024;
+    
+    // On desktop, use Navigator.push to stay within sidebar
+    // On mobile, use Get.to() for full screen navigation
+    if (isDesktop) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AppointmentDetailsView(appointment: appointment),
+        ),
+      );
+    } else {
+      Get.to(() => AppointmentDetailsView(appointment: appointment));
+    }
+  }
+
+  void _navigateToAppointmentsList(BuildContext context) {
+    // Switch to appointments tab using navigation controller
+    final navigationController = Provider.of<NavigationController>(context, listen: false);
+    navigationController.switchToAppointments();
+  }
+
+  void _navigateToAppointmentsWithFilter(
+    BuildContext context,
+    AppointmentStatus? status,
+  ) {
+    final appointmentProvider = Provider.of<AppointmentProvider>(context, listen: false);
+    appointmentProvider.filterByStatus(status);
+    _navigateToAppointmentsList(context);
   }
 
   Widget _buildStatusChip(AppointmentStatus status) {
@@ -458,7 +865,7 @@ class DashboardView extends StatelessWidget {
                 title: 'View All',
                 color: Colors.blue,
                 onTap: () {
-                  // Navigate to appointments tab
+                  _navigateToAppointmentsList(context);
                 },
               ),
             ),

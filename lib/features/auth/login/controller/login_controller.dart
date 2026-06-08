@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
-import 'package:telehealth_app/features/auth/services/auth_api.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:telehealth_app/core/auth/auth_debug_log.dart';
+import 'package:telehealth_app/core/auth/auth_error_mapper.dart';
+import 'package:telehealth_app/core/supabase/auth_email_check.dart';
 
 class LoginProvider extends ChangeNotifier {
   final emailController = TextEditingController();
   bool isLoading = false;
   String? error;
-
-  final AuthApi _authApi = AuthApi();
 
   LoginProvider() {
     emailController.addListener(_onTextChanged);
@@ -26,11 +26,30 @@ class LoginProvider extends ChangeNotifier {
     isLoading = true;
     error = null;
     notifyListeners();
+    final email = emailController.text.trim();
+    authDebug('LoginOTP', 'start sendOtp', 'email=$email shouldCreateUser=false');
     try {
-      await _authApi.login(email: emailController.text.trim());
+      final check = await fetchSignupEmailStatus(email);
+      if (check.status != SignupEmailStatus.exists) {
+        error = 'Invalid credentials.';
+        return false;
+      }
+
+      await Supabase.instance.client.auth.signInWithOtp(
+        email: email,
+        shouldCreateUser: false,
+      );
+      authDebug('LoginOTP', 'signInWithOtp completed OK (OTP email should be sent)');
       return true;
-    } on NetworkExceptions catch (e) {
-      error = e.message;
+    } on AuthException catch (e, st) {
+      authDebugException('LoginOTP', e, st);
+      final friendly = userMessageForAuthException(e, flow: AuthFlow.loginSendOtp);
+      authDebug('LoginOTP', 'mapped user message', friendly);
+      error = friendly;
+      return false;
+    } catch (e, st) {
+      authDebugException('LoginOTP', e, st);
+      error = 'Could not verify account. Try again.';
       return false;
     } finally {
       isLoading = false;

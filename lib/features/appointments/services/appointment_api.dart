@@ -1,14 +1,9 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:telehealth_app/core/network/api_factory.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
-import 'package:telehealth_app/core/utils/app_endpoints.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../model/appointment_model.dart';
 import '../model/appointment_note_model.dart';
 
 class AppointmentApi {
-  final _client = ApiFactory.client;
-
   /// Create a new appointment
   /// Validates that appointment is within 14 days from current date
   Future<AppointmentResponse> createAppointment({
@@ -19,35 +14,40 @@ class AppointmentApi {
     required String time,
     required String appointmentStartTime,
     required String appointmentEndTime,
+    String? status,
   }) async {
     try {
-      final requestData = {
-        'doctorEmail': doctorEmail,
-        'patientEmail': patientEmail,
-        'shortDescription': shortDescription,
-        'date': date,
-        'time': time,
-        'appointmentStartTime': appointmentStartTime,
-        'appointmentEndTime': appointmentEndTime,
-      };
+      debugPrint('========== SUPABASE RPC ==========');
+      debugPrint('Function: app_create_appointment');
+      debugPrint('==================================\n');
 
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: ${AppEndpoints.createAppointment}');
-      debugPrint('Method: POST');
-      debugPrint('Request Body:');
-      requestData.forEach((key, value) {
-        debugPrint('  $key: $value');
-      });
-      debugPrint('=================================\n');
-
-      final Response response = await _client.post(
-        AppEndpoints.createAppointment,
-        data: requestData,
+      final dynamic raw = await Supabase.instance.client.rpc(
+        'app_create_appointment',
+        params: {
+          'p_doctor_email': doctorEmail,
+          'p_patient_email': patientEmail,
+          'p_short_description': shortDescription,
+          'p_appointment_start_time': appointmentStartTime,
+          'p_appointment_end_time': appointmentEndTime,
+          'p_appointment_time': time,
+          'p_status': (status != null && status.isNotEmpty) ? status : 'PENDING',
+        },
       );
 
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return AppointmentResponse.fromJson(data);
-    } on NetworkExceptions {
+      final rows = raw as List<dynamic>;
+      if (rows.isEmpty) {
+        return AppointmentResponse(message: 'Failed to create appointment', status: 'FAILED');
+      }
+      final appointment = Appointment.fromJson(Map<String, dynamic>.from(rows.first as Map));
+      return AppointmentResponse(
+        message: 'Appointment created successfully',
+        status: appointment.status.name,
+        appointment: appointment,
+      );
+    } on PostgrestException catch (e) {
+      debugPrint(
+        '[app_create_appointment] ${e.message} (code: ${e.code}, details: ${e.details}, hint: ${e.hint})',
+      );
       rethrow;
     }
   }
@@ -55,27 +55,25 @@ class AppointmentApi {
   /// Get all appointments for a user by email
   Future<List<Appointment>> getMyAppointments(String email) async {
     try {
-      // URL-encode the email to handle special characters like @ in path parameters
-      final encodedEmail = Uri.encodeComponent(email);
-      final endpoint = '${AppEndpoints.getMyAppointments}/$encodedEmail';
+      debugPrint('========== SUPABASE RPC ==========');
+      debugPrint('Function: app_get_my_appointments');
+      debugPrint('Param: p_email=$email');
+      debugPrint('==================================\n');
 
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: GET');
-      debugPrint('=================================\n');
+      final dynamic response = await Supabase.instance.client.rpc(
+        'app_get_my_appointments',
+        params: {'p_email': email},
+      );
 
-      final Response response = await _client.get(endpoint);
-
-      if (response.data is List) {
-        final List<dynamic> data = response.data as List;
-        return data
-            .map((json) => Appointment.fromJson(json as Map<String, dynamic>))
+      if (response is List) {
+        return response
+            .map((json) => Appointment.fromJson(Map<String, dynamic>.from(json as Map)))
             .toList();
       }
 
       return [];
-    } on NetworkExceptions {
-      rethrow;
+    } on PostgrestException catch (e) {
+      throw Exception(e.message);
     }
   }
 
@@ -88,31 +86,30 @@ class AppointmentApi {
     required String newTime,
   }) async {
     try {
-      final endpoint = '${AppEndpoints.updateAppointment}/$appointmentId';
-      final requestData = {
-        'doctorEmail': doctorEmail,
-        'patientEmail': patientEmail,
-        'newDate': newDate,
-        'newTime': newTime,
-      };
+      final startTime = DateTime.parse('${newDate}T${newTime.padLeft(5, '0')}:00');
+      final endTime = startTime.add(const Duration(minutes: 30));
 
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: PUT');
-      debugPrint('Request Body:');
-      requestData.forEach((key, value) {
-        debugPrint('  $key: $value');
-      });
-      debugPrint('=================================\n');
+      debugPrint('========== SUPABASE RPC ==========');
+      debugPrint('Function: app_update_appointment');
+      debugPrint('==================================\n');
 
-      final Response response = await _client.put(
-        endpoint,
-        data: requestData,
+      final dynamic raw = await Supabase.instance.client.rpc(
+        'app_update_appointment',
+        params: {
+          'p_appointment_id': appointmentId,
+          // Always send UTC to preserve the exact intended local slot.
+          'p_appointment_start_time': startTime.toUtc().toIso8601String(),
+          'p_appointment_end_time': endTime.toUtc().toIso8601String(),
+          'p_appointment_time': newTime,
+        },
       );
 
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return Appointment.fromJson(data);
-    } on NetworkExceptions {
+      final rows = raw as List<dynamic>;
+      if (rows.isEmpty) {
+        throw Exception('No appointment returned from update RPC.');
+      }
+      return Appointment.fromJson(Map<String, dynamic>.from(rows.first as Map));
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -120,18 +117,15 @@ class AppointmentApi {
   /// Cancel an appointment
   Future<AppointmentResponse> cancelAppointment(int appointmentId) async {
     try {
-      final endpoint = '${AppEndpoints.cancelAppointment}/$appointmentId';
-
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: PUT');
-      debugPrint('=================================\n');
-
-      final Response response = await _client.put(endpoint);
-
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return AppointmentResponse.fromJson(data);
-    } on NetworkExceptions {
+      await Supabase.instance.client.rpc(
+        'app_set_appointment_status',
+        params: {
+          'p_appointment_id': appointmentId,
+          'p_status': 'CANCELLED',
+        },
+      );
+      return AppointmentResponse(message: 'Appointment cancelled', status: 'CANCELLED');
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -139,18 +133,15 @@ class AppointmentApi {
   /// Confirm an appointment
   Future<AppointmentResponse> confirmAppointment(int appointmentId) async {
     try {
-      final endpoint = '${AppEndpoints.confirmAppointment}/$appointmentId';
-
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: PUT');
-      debugPrint('=================================\n');
-
-      final Response response = await _client.put(endpoint);
-
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return AppointmentResponse.fromJson(data);
-    } on NetworkExceptions {
+      await Supabase.instance.client.rpc(
+        'app_set_appointment_status',
+        params: {
+          'p_appointment_id': appointmentId,
+          'p_status': 'CONFIRMED',
+        },
+      );
+      return AppointmentResponse(message: 'Appointment confirmed', status: 'CONFIRMED');
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -165,32 +156,25 @@ class AppointmentApi {
     required String observations,
   }) async {
     try {
-      final endpoint = '${AppEndpoints.addAppointmentNotes}/$appointmentId/notes';
-      final requestData = {
-        'noteType': noteType,
-        'clinicalNotes': clinicalNotes,
+      final uid = Supabase.instance.client.auth.currentUser?.id;
+      if (uid == null) {
+        throw Exception('User is not authenticated');
+      }
+      await Supabase.instance.client.from('appointment_notes').insert({
+        'appointment_id': appointmentId,
+        'author_id': uid,
+        'note_type': noteType,
+        'clinical_notes': clinicalNotes,
         'diagnosis': diagnosis,
-        'treatmentPlan': treatmentPlan,
+        'treatment_plan': treatmentPlan,
         'observations': observations,
-      };
-
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: PUT');
-      debugPrint('Request Body:');
-      requestData.forEach((key, value) {
-        debugPrint('  $key: $value');
       });
-      debugPrint('=================================\n');
 
-      final Response response = await _client.put(
-        endpoint,
-        data: requestData,
+      return AppointmentNoteResponse(
+        message: 'Appointment note saved successfully',
+        status: 'COMPLETED',
       );
-
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return AppointmentNoteResponse.fromJson(data);
-    } on NetworkExceptions {
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -198,30 +182,26 @@ class AppointmentApi {
   /// Get appointment notes by appointmentId
   Future<List<AppointmentNote>> getAppointmentNotesByAppointmentId(int appointmentId) async {
     try {
-      final endpoint = '${AppEndpoints.getAppointmentNotes}/notes/$appointmentId';
-      
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: GET');
-      debugPrint('=================================\n');
+      final List<dynamic> rows = await Supabase.instance.client
+          .from('appointment_notes')
+          .select(
+              'id, note_type, clinical_notes, diagnosis, treatment_plan, observations, created_at')
+          .eq('appointment_id', appointmentId)
+          .order('created_at', ascending: false);
 
-      final Response response = await _client.get(endpoint);
-
-      if (response.data is List) {
-        final List<dynamic> data = response.data as List;
-        return data
-            .map((json) => AppointmentNote.fromJson(json as Map<String, dynamic>))
-            .toList();
-      }
-
-      // If response is a single object (not a list), wrap it in a list
-      if (response.data is Map) {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-        return [AppointmentNote.fromJson(data)];
-      }
-
-      return [];
-    } on NetworkExceptions {
+      return rows.map((row) {
+        final map = Map<String, dynamic>.from(row as Map);
+        return AppointmentNote.fromJson({
+          'id': map['id'],
+          'noteType': map['note_type'],
+          'clinicalNotes': map['clinical_notes'],
+          'diagnosis': map['diagnosis'],
+          'treatmentPlan': map['treatment_plan'],
+          'observations': map['observations'],
+          'createdAt': map['created_at'],
+        });
+      }).toList();
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -232,26 +212,37 @@ class AppointmentApi {
     required int noteId,
   }) async {
     try {
-      final endpoint = '${AppEndpoints.getAppointmentNoteById}/$appointmentId/notes/$noteId';
+      final dynamic row = await Supabase.instance.client
+          .from('appointment_notes')
+          .select(
+              'id, note_type, clinical_notes, diagnosis, treatment_plan, observations, created_at')
+          .eq('appointment_id', appointmentId)
+          .eq('id', noteId)
+          .maybeSingle();
 
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: GET');
-      debugPrint('=================================\n');
+      if (row == null) {
+        throw Exception('Appointment note not found');
+      }
 
-      final Response response = await _client.get(endpoint);
-
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return AppointmentNote.fromJson(data);
-    } on NetworkExceptions {
+      final map = Map<String, dynamic>.from(row as Map);
+      return AppointmentNote.fromJson({
+        'id': map['id'],
+        'noteType': map['note_type'],
+        'clinicalNotes': map['clinical_notes'],
+        'diagnosis': map['diagnosis'],
+        'treatmentPlan': map['treatment_plan'],
+        'observations': map['observations'],
+        'createdAt': map['created_at'],
+      });
+    } on PostgrestException {
       rethrow;
     }
   }
 
-  /// Update an appointment note (uses PUT to same endpoint as add, without noteId)
+  /// Update an appointment note
   Future<AppointmentNoteResponse> updateAppointmentNote({
     required int appointmentId,
-    required int noteId, // Note: noteId is kept for backward compatibility but not used in endpoint
+    required int noteId,
     required String noteType,
     required String clinicalNotes,
     required String diagnosis,
@@ -259,33 +250,23 @@ class AppointmentApi {
     required String observations,
   }) async {
     try {
-      // Use same endpoint as add - PUT to /appointment/{appointmentId}/notes
-      final endpoint = '${AppEndpoints.updateAppointmentNote}/$appointmentId/notes';
-      final requestData = {
-        'noteType': noteType,
-        'clinicalNotes': clinicalNotes,
-        'diagnosis': diagnosis,
-        'treatmentPlan': treatmentPlan,
-        'observations': observations,
-      };
+      await Supabase.instance.client
+          .from('appointment_notes')
+          .update({
+            'note_type': noteType,
+            'clinical_notes': clinicalNotes,
+            'diagnosis': diagnosis,
+            'treatment_plan': treatmentPlan,
+            'observations': observations,
+          })
+          .eq('appointment_id', appointmentId)
+          .eq('id', noteId);
 
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: PUT');
-      debugPrint('Request Body:');
-      requestData.forEach((key, value) {
-        debugPrint('  $key: $value');
-      });
-      debugPrint('=================================\n');
-
-      final Response response = await _client.put(
-        endpoint,
-        data: requestData,
+      return AppointmentNoteResponse(
+        message: 'Appointment note updated successfully',
+        status: 'COMPLETED',
       );
-
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return AppointmentNoteResponse.fromJson(data);
-    } on NetworkExceptions {
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -296,18 +277,17 @@ class AppointmentApi {
     required int noteId,
   }) async {
     try {
-      final endpoint = '${AppEndpoints.deleteAppointmentNote}/$appointmentId/notes/$noteId';
+      await Supabase.instance.client
+          .from('appointment_notes')
+          .delete()
+          .eq('appointment_id', appointmentId)
+          .eq('id', noteId);
 
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: DELETE');
-      debugPrint('=================================\n');
-
-      final Response response = await _client.delete(endpoint);
-
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return AppointmentNoteResponse.fromJson(data);
-    } on NetworkExceptions {
+      return AppointmentNoteResponse(
+        message: 'Appointment note deleted successfully',
+        status: 'COMPLETED',
+      );
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -316,20 +296,61 @@ class AppointmentApi {
   Future<VideoStartResponse> startVideo({
     required int appointmentId,
   }) async {
+    debugPrint('[AppointmentApi] startVideo called (appointmentId=$appointmentId)');
+    return _fetchAgoraToken(
+      appointmentId: appointmentId,
+      persistSession: true,
+    );
+  }
+
+  /// Refresh Agora token without creating a new video session row.
+  Future<VideoStartResponse> refreshVideoToken({
+    required int appointmentId,
+  }) async {
+    debugPrint('[AppointmentApi] refreshVideoToken called (appointmentId=$appointmentId)');
+    return _fetchAgoraToken(
+      appointmentId: appointmentId,
+      persistSession: false,
+    );
+  }
+
+  Future<VideoStartResponse> _fetchAgoraToken({
+    required int appointmentId,
+    required bool persistSession,
+  }) async {
     try {
-      final endpoint = '${AppEndpoints.videoStart}/$appointmentId/video/start';
+      debugPrint('[AppointmentApi] _fetchAgoraToken invoking app-agora-token (appointmentId=$appointmentId, persistSession=$persistSession)');
+      final functionResponse = await Supabase.instance.client.functions.invoke(
+        'app-agora-token',
+        body: {'appointment_id': appointmentId},
+      );
 
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: POST');
-      debugPrint('=================================\n');
+      final responseData = functionResponse.data;
+      debugPrint('[AppointmentApi] _fetchAgoraToken raw response type=${responseData.runtimeType}');
+      if (responseData is! Map) {
+        throw Exception('Invalid token response from app-agora-token.');
+      }
+      final parsed = VideoStartResponse.fromJson(Map<String, dynamic>.from(responseData));
+      debugPrint('[AppointmentApi] _fetchAgoraToken parsed (room=${parsed.roomName}, uid=${parsed.uid}, expiresAt=${parsed.expiresAt})');
 
-      final Response response = await _client.post(endpoint);
+      if (persistSession) {
+        // Persist metadata for traceability/debugging in appointment history.
+        debugPrint('[AppointmentApi] _fetchAgoraToken inserting appointment_video_sessions row');
+        await Supabase.instance.client.from('appointment_video_sessions').insert({
+          'appointment_id': appointmentId,
+          'room_name': parsed.roomName,
+          'access_token': null,
+        });
+      }
 
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return VideoStartResponse.fromJson(data);
-    } on NetworkExceptions {
+      debugPrint('[AppointmentApi] _fetchAgoraToken success');
+      return parsed;
+    } on PostgrestException {
+      debugPrint('[AppointmentApi] _fetchAgoraToken PostgrestException');
       rethrow;
+    } on FunctionException catch (e) {
+      debugPrint('[AppointmentApi] _fetchAgoraToken FunctionException: ${e.details ?? e.reasonPhrase}');
+      throw Exception(e.details ?? e.reasonPhrase ?? 'Unable to generate Agora token.');
     }
   }
 
@@ -338,19 +359,43 @@ class AppointmentApi {
     required int appointmentId,
   }) async {
     try {
-      final endpoint = '${AppEndpoints.videoEnd}/$appointmentId/end';
+      debugPrint('[AppointmentApi] endVideo called (appointmentId=$appointmentId)');
+      await Supabase.instance.client
+          .from('appointment_video_sessions')
+          .update({
+            'ended_at': DateTime.now().toIso8601String(),
+            'ended_ok': true,
+          })
+          .eq('appointment_id', appointmentId)
+          .isFilter('ended_at', null);
 
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: $endpoint');
-      debugPrint('Method: POST');
-      debugPrint('=================================\n');
-
-      final Response response = await _client.post(endpoint);
-
-      final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-      return VideoEndResponse.fromJson(data);
-    } on NetworkExceptions {
+      debugPrint('[AppointmentApi] endVideo session marked ended');
+      return VideoEndResponse(
+        appointmentId: appointmentId,
+        status: true,
+      );
+    } on PostgrestException {
+      debugPrint('[AppointmentApi] endVideo PostgrestException');
       rethrow;
+    }
+  }
+
+  /// Public avatar URL for [email] from [profiles.profile_pic_url], if readable under RLS.
+  Future<String?> fetchProfilePicUrlForEmail(String email) async {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty || trimmed == '—') return null;
+    try {
+      final row = await Supabase.instance.client
+          .from('profiles')
+          .select('profile_pic_url')
+          .ilike('email', trimmed)
+          .maybeSingle();
+      final url = row?['profile_pic_url'] as String?;
+      if (url == null || url.trim().isEmpty) return null;
+      return url.trim();
+    } catch (e) {
+      debugPrint('[AppointmentApi] fetchProfilePicUrlForEmail: $e');
+      return null;
     }
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:telehealth_app/features/appointments/services/appointment_api.dart';
 import '../model/appointment_note_model.dart';
 
@@ -14,24 +14,32 @@ class VideoProvider extends ChangeNotifier {
 
   /// Start video call for an appointment
   Future<bool> startVideo(int appointmentId) async {
+    debugPrint('[VideoProvider] startVideo called (appointmentId=$appointmentId)');
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
       final response = await _appointmentApi.startVideo(appointmentId: appointmentId);
+      debugPrint('[VideoProvider] startVideo token response received (room=${response.roomName}, uid=${response.uid})');
+      if (response.appId.isEmpty || response.accessToken.isEmpty || response.roomName.isEmpty) {
+        throw Exception('Incomplete Agora configuration from backend.');
+      }
       videoStartResponse = response;
       isVideoActive = true;
       isLoading = false;
       notifyListeners();
+      debugPrint('[VideoProvider] startVideo success');
       return true;
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
+      debugPrint('[VideoProvider] startVideo PostgrestException: ${e.message}');
       error = e.message;
       isLoading = false;
       notifyListeners();
       return false;
     } catch (e) {
-      error = 'Failed to start video call. Please try again.';
+      debugPrint('[VideoProvider] startVideo error: $e');
+      error = e.toString().replaceFirst('Exception: ', '');
       isLoading = false;
       notifyListeners();
       return false;
@@ -40,17 +48,20 @@ class VideoProvider extends ChangeNotifier {
 
   /// End video call for an appointment
   Future<bool> endVideo(int appointmentId) async {
+    debugPrint('[VideoProvider] endVideo called (appointmentId=$appointmentId)');
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
       final response = await _appointmentApi.endVideo(appointmentId: appointmentId);
+      debugPrint('[VideoProvider] endVideo API response status=${response.status}');
       if (response.status) {
         isVideoActive = false;
         videoStartResponse = null;
         isLoading = false;
         notifyListeners();
+        debugPrint('[VideoProvider] endVideo success');
         return true;
       } else {
         error = 'Failed to end video call';
@@ -58,12 +69,14 @@ class VideoProvider extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
+      debugPrint('[VideoProvider] endVideo PostgrestException: ${e.message}');
       error = e.message;
       isLoading = false;
       notifyListeners();
       return false;
     } catch (e) {
+      debugPrint('[VideoProvider] endVideo error: $e');
       error = 'Failed to end video call. Please try again.';
       isLoading = false;
       notifyListeners();
@@ -72,6 +85,7 @@ class VideoProvider extends ChangeNotifier {
   }
 
   void reset() {
+    debugPrint('[VideoProvider] reset called');
     videoStartResponse = null;
     isVideoActive = false;
     error = null;

@@ -39,6 +39,9 @@ class _SearchableUserDropdownState extends State<SearchableUserDropdown> {
   void initState() {
     super.initState();
     _filteredUsers = widget.users;
+    if (widget.selectedUser != null) {
+      _searchController.text = widget.selectedUser!.directoryListTitle;
+    }
     _searchController.addListener(_filterUsers);
     _focusNode.addListener(_onFocusChange);
   }
@@ -51,7 +54,7 @@ class _SearchableUserDropdownState extends State<SearchableUserDropdown> {
     }
     if (oldWidget.selectedUser != widget.selectedUser) {
       if (widget.selectedUser != null) {
-        _searchController.text = widget.selectedUser!.email;
+        _searchController.text = widget.selectedUser!.directoryListTitle;
       } else {
         _searchController.clear();
       }
@@ -91,7 +94,7 @@ class _SearchableUserDropdownState extends State<SearchableUserDropdown> {
   }
 
   void _selectUser(User user) {
-    _searchController.text = user.email;
+    _searchController.text = user.directoryListTitle;
     widget.onUserSelected(user);
     setState(() {
       _isExpanded = false;
@@ -251,17 +254,17 @@ class _SearchableUserDropdownState extends State<SearchableUserDropdown> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         CustomText(
-                                          text: user.email,
+                                          text: user.directoryListTitle,
                                           fontSize: 14,
                                           fontWeight: FontWeight.w500,
                                           color: AppColors.textColor,
                                         ),
-                                        if (user.username != null &&
-                                            user.username!.isNotEmpty)
+                                        if (user.email.isNotEmpty &&
+                                            user.directoryListTitle != user.email)
                                           Padding(
                                             padding: const EdgeInsets.only(top: 4),
                                             child: CustomText(
-                                              text: user.username!,
+                                              text: user.email,
                                               fontSize: 12,
                                               color: AppColors.hintColor,
                                             ),

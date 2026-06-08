@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:telehealth_app/core/theme/app_colors.dart';
 import 'package:telehealth_app/core/utils/app_sizing.dart';
@@ -8,7 +7,6 @@ import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import 'package:telehealth_app/shared_widgets/text_field.dart';
 import 'package:telehealth_app/shared_widgets/responsive_auth_layout.dart';
 import '../controller/doctor_registration_provider.dart';
-import '../../otp_verification/views/otp_view.dart';
 
 class DoctorRegistrationViewNew extends StatelessWidget {
   final String email;
@@ -18,15 +16,14 @@ class DoctorRegistrationViewNew extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) {
-        final provider = DoctorRegistrationProvider();
-        provider.setEmail(email);
-        provider.setRole(role);
-        return provider;
-      },
-      child: _CompleteProfileBody(email: email, role: role),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      final provider = context.read<DoctorRegistrationProvider>();
+      provider.setEmail(email);
+      provider.setRole(role);
+    });
+
+    return _CompleteProfileBody(email: email, role: role);
   }
 }
 
@@ -242,8 +239,6 @@ class _CompleteProfileBody extends StatelessWidget {
                   ? () async {
                       try {
                         await provider.submitRegistration(context);
-                        // Navigate to OTP verification for registration
-                        Get.to(() => VerifyEmailView(email: email, isRegistration: true));
                       } catch (e) {
                         // Error already shown in submitRegistration
                       }

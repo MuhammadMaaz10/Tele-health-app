@@ -22,6 +22,63 @@ class AppointmentsListView extends StatelessWidget {
     final isTablet = screenWidth > 600 && screenWidth <= 1024;
 
     return Scaffold(
+      backgroundColor: Colors.white,
+      body: isDesktop
+          ? _buildDesktopLayoutWithAppBar(context)
+          : _buildMobileLayout(context, isTablet),
+    );
+  }
+
+  Widget _buildDesktopLayoutWithAppBar(BuildContext context) {
+    return Column(
+      children: [
+        // AppBar aligned with sidebar header
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Row(
+            children: [
+              const Expanded(
+                child: CustomText(
+                  text: 'My Appointments',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textColor,
+                ),
+              ),
+              Consumer<AppointmentProvider>(
+                builder: (context, provider, child) {
+                  return IconButton(
+                    icon: const Icon(Icons.refresh, color: AppColors.primary),
+                    onPressed: provider.isLoadingAppointments
+                        ? null
+                        : () => provider.loadAppointments(),
+                    tooltip: 'Refresh',
+                  );
+                },
+              ),
+              Consumer<AppointmentProvider>(
+                builder: (context, provider, child) {
+                  return IconButton(
+                    icon: const Icon(Icons.add, color: AppColors.primary),
+                    onPressed: () => _navigateToCreateAppointment(context),
+                    tooltip: 'New Appointment',
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        // Scrollable content
+        Expanded(
+          child: _buildDesktopLayout(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context, bool isTablet) {
+    return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundColor,
@@ -57,35 +114,26 @@ class AppointmentsListView extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: isDesktop
-            ? _buildDesktopLayout(context)
-            : _buildMobileTabletLayout(context, isTablet),
+        child: _buildMobileTabletLayout(context, isTablet),
       ),
     );
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWeb = kIsWeb;
-    
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: isWeb ? (screenWidth > 1600 ? 80 : screenWidth > 1200 ? 60 : 40) : (screenWidth > 1400 ? 60 : 40),
-          vertical: isWeb ? 20 : 30,
-        ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: isWeb ? 1800 : 1400),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top Section - Filters and Stats in one row
-              _buildTopFiltersSection(context),
-              SizedBox(height: isWeb ? 16 : 30),
-              // Appointments List
-              _buildAppointmentsList(context),
-            ],
-          ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Section - Filters and Stats in one row
+            _buildTopFiltersSection(context),
+            const SizedBox(height: 24),
+            // Appointments List
+            _buildAppointmentsList(context),
+            const SizedBox(height: 40),
+          ],
         ),
       ),
     );
@@ -101,60 +149,83 @@ class AppointmentsListView extends StatelessWidget {
   }
 
   Widget _buildSegmentedControl(BuildContext context, AppointmentProvider provider, bool isWeb) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompactMobile = !isWeb && screenWidth < 420;
+
     final filterOptions = [
       {'label': 'All', 'status': null},
-      {'label': 'Pending', 'status': AppointmentStatus.PENDING},
       {'label': 'Confirmed', 'status': AppointmentStatus.CONFIRMED},
-      {'label': 'Rescheduled', 'status': AppointmentStatus.RESCHEDULED},
+      {'label': 'Completed', 'status': AppointmentStatus.COMPLETED},
       {'label': 'Cancelled', 'status': AppointmentStatus.CANCELLED},
     ];
 
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: isWeb ? 4 : 6, vertical: isWeb ? 4 : 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: isWeb ? 8 : 6,
+          vertical: isWeb ? 6 : 8,
+        ),
         decoration: BoxDecoration(
           color: AppColors.backgroundColor,
-          borderRadius: BorderRadius.circular(isWeb ? 10 : 12),
+          borderRadius: BorderRadius.circular(isWeb ? 12 : 14),
           border: Border.all(
             color: AppColors.lightBorderColor,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: filterOptions.map((option) {
+          children: filterOptions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final option = entry.value;
             final isSelected = provider.filterStatus == option['status'];
-            return GestureDetector(
-              onTap: () => provider.filterByStatus(option['status'] as AppointmentStatus?),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: isWeb ? 16 : 20, vertical: isWeb ? 10 : 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CustomText(
-                      text: option['label'] as String,
-                      fontSize: isWeb ? 14 : 15,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? AppColors.textColor : AppColors.hintColor,
-                    ),
-                    SizedBox(height: isWeb ? 6 : 8),
-                    Container(
-                      width: isSelected ? (option['label'] as String).length * (isWeb ? 6.5 : 7.5) : 0,
-                      height: 2,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(1),
+            final label = option['label'] as String;
+            return Padding(
+              padding: EdgeInsets.only(
+                left: index == 0 ? 0 : (isCompactMobile ? 2 : 4),
+              ),
+              child: GestureDetector(
+                onTap: () => provider.filterByStatus(option['status'] as AppointmentStatus?),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isWeb ? 16 : (isCompactMobile ? 10 : 14),
+                    vertical: isWeb ? 10 : (isCompactMobile ? 10 : 12),
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: CustomText(
+                          text: label,
+                          fontSize: isWeb ? 14 : (isCompactMobile ? 13 : 15),
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? AppColors.textColor : AppColors.hintColor,
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: isWeb ? 6 : (isCompactMobile ? 6 : 8)),
+                      Container(
+                        width: isSelected ? label.length * (isWeb ? 5.8 : (isCompactMobile ? 5.3 : 6.6)) : 0,
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -522,8 +593,8 @@ class AppointmentsListView extends StatelessWidget {
                             SizedBox(height: 2),
                             CustomText(
                               text: provider.userRole == 'PATIENT'
-                                  ? 'Dr. ${appointment.doctorAssigned.split('@').first}'
-                                  : appointment.patientBooked,
+                                  ? 'Dr. ${appointment.doctorDisplayName}'
+                                  : 'Patient: ${appointment.patientDisplayName}',
                               fontSize: isWeb ? 11 : 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textColor,

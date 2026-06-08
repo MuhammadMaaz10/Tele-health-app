@@ -103,10 +103,11 @@ class _SetNewPasswordBody extends StatelessWidget {
           kGap40,
           CustomButton(
             text: "Update Password",
-            onPressed: provider.isFormValid
+            isLoading: provider.isLoading,
+            onPressed: provider.isFormValid && !provider.isLoading
                 ? () => provider.submit(context)
                 : null,
-            backgroundColor: provider.isFormValid
+            backgroundColor: provider.isFormValid && !provider.isLoading
                 ? AppColors.primary
                 : AppColors.primary.withOpacity(0.5),
           ),

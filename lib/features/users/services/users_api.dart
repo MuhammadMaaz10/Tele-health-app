@@ -1,32 +1,14 @@
-import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:telehealth_app/core/network/api_factory.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
-import 'package:telehealth_app/core/utils/app_endpoints.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show PostgrestException, Supabase;
 import 'package:telehealth_app/features/profile/model/profile_model.dart';
 
 class UsersApi {
-  final _client = ApiFactory.client;
-
   /// Get all doctors
   Future<List<User>> getDoctors() async {
     try {
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: ${AppEndpoints.getDoctors}');
-      debugPrint('Method: GET');
-      debugPrint('=================================\n');
-
-      final Response response = await _client.get(AppEndpoints.getDoctors);
-
-      if (response.data is List) {
-        final List<dynamic> data = response.data as List;
-        return data
-            .map((json) => User.fromJson(json as Map<String, dynamic>))
-            .toList();
-      }
-
-      return [];
-    } on NetworkExceptions {
+      final raw = await Supabase.instance.client.rpc('app_get_doctors_directory');
+      return _mapUsers(raw);
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -34,22 +16,9 @@ class UsersApi {
   /// Get all patients
   Future<List<User>> getPatients() async {
     try {
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: ${AppEndpoints.getPatients}');
-      debugPrint('Method: GET');
-      debugPrint('=================================\n');
-
-      final Response response = await _client.get(AppEndpoints.getPatients);
-
-      if (response.data is List) {
-        final List<dynamic> data = response.data as List;
-        return data
-            .map((json) => User.fromJson(json as Map<String, dynamic>))
-            .toList();
-      }
-
-      return [];
-    } on NetworkExceptions {
+      final raw = await Supabase.instance.client.rpc('app_get_patients_directory');
+      return _mapUsers(raw);
+    } on PostgrestException {
       rethrow;
     }
   }
@@ -57,26 +26,36 @@ class UsersApi {
   /// Get all nurses
   Future<List<User>> getNurses() async {
     try {
-      debugPrint('========== API REQUEST ==========');
-      debugPrint('Endpoint: ${AppEndpoints.getNurses}');
-      debugPrint('Method: GET');
-      debugPrint('=================================\n');
-
-      final Response response = await _client.get(AppEndpoints.getNurses);
-
-      if (response.data is List) {
-        final List<dynamic> data = response.data as List;
-        return data
-            .map((json) => User.fromJson(json as Map<String, dynamic>))
-            .toList();
-      }
-
-      return [];
-    } on NetworkExceptions {
+      final raw = await Supabase.instance.client.rpc('app_get_nurses_directory');
+      return _mapUsers(raw);
+    } on PostgrestException {
       rethrow;
     }
   }
+
+  List<User> _mapUsers(dynamic raw) {
+    if (raw is! List) return const <User>[];
+    return raw.map((row) {
+      final map = Map<String, dynamic>.from(row as Map);
+      return User(
+        id: 0,
+        email: readLooseString(map, ['email']) ?? '',
+        username: readLooseString(map, [
+          'username',
+          'user_name',
+          'name',
+          'full_name',
+          'fullname',
+          'display_name',
+          'displayname',
+        ]),
+        enabled: (map['enabled'] as bool?) ?? true,
+        roles: const [],
+      );
+    }).toList();
+  }
 }
+
 
 
 

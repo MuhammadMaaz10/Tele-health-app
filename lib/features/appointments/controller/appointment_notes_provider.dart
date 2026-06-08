@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
 import 'package:telehealth_app/features/appointments/services/appointment_api.dart';
 import '../model/appointment_note_model.dart';
@@ -73,7 +73,7 @@ class AppointmentNotesProvider extends ChangeNotifier {
       }
       
       notifyListeners();
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       notes = [];
       notifyListeners();
@@ -104,7 +104,7 @@ class AppointmentNotesProvider extends ChangeNotifier {
       isLoadingNotes = false;
       notifyListeners();
       return note;
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoadingNotes = false;
       notifyListeners();
@@ -220,7 +220,7 @@ class AppointmentNotesProvider extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoading = false;
       notifyListeners();
@@ -275,7 +275,7 @@ class AppointmentNotesProvider extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoading = false;
       notifyListeners();
@@ -321,7 +321,7 @@ class AppointmentNotesProvider extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoading = false;
       notifyListeners();

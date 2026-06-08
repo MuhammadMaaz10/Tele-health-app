@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "telehealth-app-b51b9"
-  }
+  },
+  "targets": {
+    "telehealth-app-b51b9": {
+      "hosting": {
+        "telehealthupdated": [
+          "telehealthupdated"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

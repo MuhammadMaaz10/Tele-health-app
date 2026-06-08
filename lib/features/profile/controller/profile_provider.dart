@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:telehealth_app/core/network/api_factory.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:telehealth_app/core/utils/location_utils.dart';
 import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
-import 'package:telehealth_app/features/auth/services/auth_api.dart';
-import '../model/profile_model.dart';
+import '../model/profile_model.dart' as pm;
 
 class ProfileProvider extends ChangeNotifier {
-  final AuthApi _authApi = AuthApi();
   
   bool isLoading = false;
   bool isLoadingProfile = false;
   String? error;
-  ProfileModel? profileModel;
-  User? user;
+  pm.ProfileModel? profileModel;
+  pm.User? user;
   String? userEmail;
   String? userRole;
 
@@ -23,59 +20,125 @@ class ProfileProvider extends ChangeNotifier {
 
   Future<void> _initialize() async {
     userEmail = await SharedPreferencesService.getEmail();
+    userEmail ??= Supabase.instance.client.auth.currentUser?.email;
     userRole = await SharedPreferencesService.getRole();
-    
-    // Re-initialize token on provider init (important for web/desktop reload)
-    final token = await SharedPreferencesService.getToken();
-    if (token != null && token.isNotEmpty) {
-      ApiFactory.setAuthToken(token);
-    }
-    
+
     notifyListeners();
-    
-    if (userEmail != null) {
+
+    final session = Supabase.instance.client.auth.currentSession;
+    if (userEmail != null || session != null) {
       await loadProfile();
     }
   }
 
   Future<void> loadProfile() async {
+    if (Supabase.instance.client.auth.currentSession != null) {
+      await _loadProfileFromSupabase();
+      return;
+    }
     if (userEmail == null) return;
-    
+    error = 'Sign in to load your profile.';
+    notifyListeners();
+  }
+
+  Future<void> _loadProfileFromSupabase() async {
+    final authUser = Supabase.instance.client.auth.currentUser;
+    if (authUser == null) return;
+
     isLoadingProfile = true;
     error = null;
     notifyListeners();
 
     try {
-      final response = await _authApi.getProfile(email: userEmail!);
-      profileModel = ProfileModel.fromJson(response);
-      user = profileModel?.data?.user;
-      
-      // Update role from API response if available
-      if (user != null && user!.roles.isNotEmpty) {
-        userRole = user!.primaryRole;
+      final client = Supabase.instance.client;
+      final row =
+          await client.from('profiles').select().eq('id', authUser.id).maybeSingle();
+
+      if (row == null) {
+        error = 'Profile not found.';
+        isLoadingProfile = false;
+        notifyListeners();
+        return;
+      }
+
+      final rolesRes = await client
+          .from('user_roles')
+          .select('role_id, roles(name)')
+          .eq('user_id', authUser.id);
+
+      final List<pm.Role> roles = [];
+      final rowsList = rolesRes as List<dynamic>;
+      for (final raw in rowsList) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        final nested = map['roles'];
+        final name = nested is Map && nested['name'] != null
+            ? nested['name'] as String
+            : null;
+        final rid = (map['role_id'] as num?)?.toInt() ?? 0;
+        if (name != null) {
+          roles.add(pm.Role(roleName: name, roleId: rid));
+        }
+      }
+
+      userEmail = row['email'] as String? ?? authUser.email;
+      if (userEmail != null) {
+        await SharedPreferencesService.saveEmail(userEmail!);
+      }
+      userRole = roles.isNotEmpty ? roles.first.roleName : null;
+      if (userRole != null) {
         await SharedPreferencesService.saveRole(userRole!);
       }
-      
-      // Reverse geocode location if available
-      if (user != null && user!.location != null) {
+
+      pm.Location? loc;
+      if (row['latitude'] != null && row['longitude'] != null) {
+        loc = pm.Location(
+          latitude: (row['latitude'] as num).toDouble(),
+          longitude: (row['longitude'] as num).toDouble(),
+        );
         try {
           final address = await LocationUtils.getAddressFromCoordinates(
-            latitude: user!.location!.latitude,
-            longitude: user!.location!.longitude,
+            latitude: loc.latitude,
+            longitude: loc.longitude,
           );
-          user!.location!.setReadableAddress(address);
+          loc.setReadableAddress(address);
         } catch (e) {
-          // If reverse geocoding fails, location will use coordinates as fallback
           debugPrint('Failed to reverse geocode location: $e');
         }
       }
-      
-      notifyListeners();
-    } on NetworkExceptions catch (e) {
-      error = e.message;
+
+      user = pm.User(
+        id: 0,
+        email: row['email'] as String? ?? '',
+        phone: row['phone'] as String?,
+        enabled: row['enabled'] as bool? ?? true,
+        location: loc,
+        createdAt: row['created_at']?.toString(),
+        dob: row['dob']?.toString(),
+        username: row['username'] as String?,
+        idDocumentUrl: row['id_document_url'] as String?,
+        medicalCertificateUrl: row['medical_certificate_url'] as String?,
+        educationalCertificateUrl: row['educational_certificate_url'] as String?,
+        specialization: row['specialization'] as String?,
+        profilePicUrl: row['profile_pic_url'] as String?,
+        gender: row['gender'] as String?,
+        roles: roles,
+      );
+
+      profileModel = pm.ProfileModel(
+        success: true,
+        message: '',
+        data: pm.ProfileData(
+          email: userEmail ?? '',
+          status: 'ACTIVE',
+          message: '',
+          user: user,
+        ),
+      );
+
       notifyListeners();
     } catch (e) {
       error = 'Failed to load profile. Please try again.';
+      debugPrint('Supabase profile load: $e');
       notifyListeners();
     } finally {
       isLoadingProfile = false;
@@ -88,11 +151,8 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Clear SharedPreferences
+      await Supabase.instance.client.auth.signOut();
       await SharedPreferencesService.clearAuthData();
-      
-      // Clear API token
-      ApiFactory.clearAuthToken();
       
       isLoading = false;
       notifyListeners();
@@ -102,9 +162,5 @@ class ProfileProvider extends ChangeNotifier {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }
 

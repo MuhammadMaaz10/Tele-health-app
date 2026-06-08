@@ -31,8 +31,28 @@
 
   <title>telehealth_app</title>
   <link rel="manifest" href="manifest.json">
+  <!-- Agora Web (iris): canvas/video live inside a registered div; Fit render mode + CSS letterboxing -->
+  <style>
+    flt-scene-host div[id^="agora_rtc_engine"] video,
+    flt-scene-host div[id^="agora_rtc_engine"] canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain !important;
+      object-position: center center;
+      background: #000;
+    }
+    flt-scene-host video {
+      object-fit: contain !important;
+      object-position: center center;
+    }
+  </style>
 </head>
 <body>
+  <!-- Required for agora_rtc_engine on web (iris_web → Agora Web SDK 4.x). Without this, engine init throws e.g. createIrisApiEngine undefined. See package README “Web (alpha)”. -->
+  <script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -8,6 +8,7 @@ import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import '../controller/appointment_provider.dart';
 import '../controller/video_provider.dart';
 import '../model/appointment_model.dart';
+import 'call_launch_view.dart';
 import 'update_appointment_view.dart';
 import 'appointment_notes_view.dart';
 
@@ -342,15 +343,15 @@ class _AppointmentDetailsViewState extends State<AppointmentDetailsView> {
           _buildInfoRow(
             userRole == 'PATIENT' ? 'Doctor' : 'Patient',
             userRole == 'PATIENT'
-                ? widget.appointment.doctorAssigned
-                : widget.appointment.patientBooked,
+                ? widget.appointment.doctorDisplayName
+                : widget.appointment.patientDisplayName,
           ),
           kGap16,
           _buildInfoRow(
             userRole == 'PATIENT' ? 'Patient' : 'Doctor',
             userRole == 'PATIENT'
-                ? widget.appointment.patientBooked
-                : widget.appointment.doctorAssigned,
+                ? widget.appointment.patientDisplayName
+                : widget.appointment.doctorDisplayName,
           ),
           kGap20,
 
@@ -379,6 +380,9 @@ class _AppointmentDetailsViewState extends State<AppointmentDetailsView> {
 
   bool _hasActions(Appointment appointment, String? userRole) {
     // Check if there are any actions available
+    if (appointment.status == AppointmentStatus.CONFIRMED) {
+      return true; // Has video/audio call action
+    }
     if (appointment.isUpcoming &&
         appointment.status != AppointmentStatus.CANCELLED) {
       return true; // Has reschedule/cancel
@@ -395,29 +399,48 @@ class _AppointmentDetailsViewState extends State<AppointmentDetailsView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Video Call Buttons (only for confirmed/upcoming appointments)
-        if (widget.appointment.isUpcoming &&
-            widget.appointment.status == AppointmentStatus.CONFIRMED)
+        if (widget.appointment.status == AppointmentStatus.CONFIRMED)
           Consumer<VideoProvider>(
             builder: (context, videoProvider, child) {
+              final canJoinCall = widget.appointment.isCallWindowOpen;
+              final callDisabledMessage = widget.appointment.isPast
+                  ? 'Call is disabled because this appointment has ended.'
+                  : 'Call is disabled until 5 minutes before the appointment start time.';
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!videoProvider.isVideoActive)
                     CustomButton(
-                      text: 'Start Video Call',
-                      onPressed: videoProvider.isLoading
+                      text: 'Start appointment call',
+                      isLoading: videoProvider.isLoading,
+                      onPressed: videoProvider.isLoading || !canJoinCall
                           ? null
-                          : () => _handleStartVideo(context, videoProvider),
+                          : () {
+                              final vp = context.read<VideoProvider>();
+                              Get.to(() => CallLaunchShell(
+                                    videoProvider: vp,
+                                    appointment: widget.appointment,
+                                  ));
+                            },
                       backgroundColor: Colors.green,
                     )
                   else
                     CustomButton(
                       text: 'End Video Call',
+                      isLoading: videoProvider.isLoading,
                       onPressed: videoProvider.isLoading
                           ? null
                           : () => _handleEndVideo(context, videoProvider),
                       backgroundColor: AppColors.error,
                     ),
+                  if (!canJoinCall && !videoProvider.isVideoActive) ...[
+                    const SizedBox(height: 8),
+                    CustomText(
+                      text: callDisabledMessage,
+                      fontSize: 12,
+                      color: AppColors.hintColor,
+                    ),
+                  ],
                   kGap16,
                 ],
               );
@@ -663,38 +686,6 @@ class _AppointmentDetailsViewState extends State<AppointmentDetailsView> {
       );
       if (success) {
         Get.back();
-      }
-    }
-  }
-
-  Future<void> _handleStartVideo(
-    BuildContext context,
-    VideoProvider videoProvider,
-  ) async {
-    final success = await videoProvider.startVideo(widget.appointment.id);
-    if (context.mounted) {
-      if (success && videoProvider.videoStartResponse != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Video call started. Room: ${videoProvider.videoStartResponse!.roomName}',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-        // TODO: Navigate to video call screen with roomName and accessToken
-        // You can use the videoProvider.videoStartResponse!.roomName and 
-        // videoProvider.videoStartResponse!.accessToken to initialize the video call
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              videoProvider.error ?? 'Failed to start video call',
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
       }
     }
   }

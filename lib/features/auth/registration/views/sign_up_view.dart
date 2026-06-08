@@ -11,8 +11,6 @@ import '../../../../shared_widgets/responsive_auth_layout.dart';
 import '../controller/sign_up_provider.dart';
 import '../../registration/views/patient_registration.dart';
 import '../../registration/views/doctor_registration_new.dart';
-import '../../otp_verification/views/otp_view.dart';
-
 class CreateAccountView extends StatelessWidget {
   const CreateAccountView({Key? key}) : super(key: key);
 
@@ -185,35 +183,20 @@ class CreateAccountView extends StatelessWidget {
     final email = provider.emailController.text.trim();
     final role = provider.selectedRole!.toUpperCase();
 
-    // 1️⃣ If email already EXISTS
+    // Fully registered: stay here and prompt login.
     if (status == 'EXISTS') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(backendMessage ?? "User already registered. Redirect to login."),
+          content: Text(
+            backendMessage ?? 'Email already registered, please login.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    // 2️⃣ If account INACTIVE → Send to OTP verification
-    if (status == 'INACTIVE') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(backendMessage ?? "Account inactive. OTP sent."),
-          backgroundColor: Colors.blue,
-        ),
-      );
-
-      // Navigate to OTP screen for reactivation
-      Get.to(() => VerifyEmailView(
-        email: email,
-        isRegistration: true, // important
-      ));
-      return;
-    }
-
-    // 3️⃣ If NEW → continue to registration
+    // NEW or INACTIVE (incomplete): collect profile first, then OTP creates auth + profile.
     if (role == 'PATIENT') {
       Get.to(() => PatientRegistrationView(email: email, role: role));
     } else {

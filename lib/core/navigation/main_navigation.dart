@@ -8,6 +8,7 @@ import 'package:telehealth_app/features/dashboard/view/dashboard_view.dart';
 import 'package:telehealth_app/features/profile/controller/profile_provider.dart';
 import 'package:telehealth_app/features/auth/login/view/login_view.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
+import 'package:telehealth_app/core/navigation/navigation_controller.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -17,6 +18,7 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
+  final NavigationController _navigationController = NavigationController();
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
@@ -35,10 +37,31 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   void initState() {
     super.initState();
+    // Listen to navigation controller changes
+    _navigationController.addListener(_onNavigationChanged);
     // Trigger data loading after navigation
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
+  }
+
+  void _onNavigationChanged() {
+    if (_currentIndex != _navigationController.currentIndex) {
+      // Pop all routes from the current navigator before switching
+      final currentNavigator = _navigatorKeys[_currentIndex].currentState;
+      if (currentNavigator != null && currentNavigator.canPop()) {
+        currentNavigator.popUntil((route) => route.isFirst);
+      }
+      setState(() {
+        _currentIndex = _navigationController.currentIndex;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _navigationController.removeListener(_onNavigationChanged);
+    super.dispose();
   }
 
   void _loadInitialData() {
@@ -50,6 +73,14 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 1024;
+    
+    return ChangeNotifierProvider.value(
+      value: _navigationController,
+      child: _buildNavigationContent(isDesktop),
+    );
+  }
+
+  Widget _buildNavigationContent(bool isDesktop) {
 
     // On desktop, show side navigation instead of bottom nav
     if (isDesktop) {
@@ -141,9 +172,7 @@ class _MainNavigationState extends State<MainNavigation> {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
+            _navigationController.switchToTab(index);
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
@@ -243,16 +272,7 @@ class _MainNavigationState extends State<MainNavigation> {
         color: Colors.transparent,
         child: InkWell(
       onTap: () {
-        // Pop all routes from the current navigator before switching
-        if (_currentIndex != index) {
-          final currentNavigator = _navigatorKeys[_currentIndex].currentState;
-          if (currentNavigator != null && currentNavigator.canPop()) {
-            currentNavigator.popUntil((route) => route.isFirst);
-          }
-        }
-        setState(() {
-          _currentIndex = index;
-        });
+        _navigationController.switchToTab(index);
       },
           borderRadius: BorderRadius.circular(12),
       child: Container(

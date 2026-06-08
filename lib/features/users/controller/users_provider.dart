@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:telehealth_app/core/utils/location_utils.dart';
 import 'package:telehealth_app/features/profile/model/profile_model.dart';
 import '../services/users_api.dart';
@@ -55,7 +55,7 @@ class UsersProvider extends ChangeNotifier {
       _doctors = users;
       isLoadingDoctors = false;
       notifyListeners();
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoadingDoctors = false;
       notifyListeners();
@@ -99,7 +99,7 @@ class UsersProvider extends ChangeNotifier {
       _patients = users;
       isLoadingPatients = false;
       notifyListeners();
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoadingPatients = false;
       notifyListeners();
@@ -143,7 +143,7 @@ class UsersProvider extends ChangeNotifier {
       _nurses = users;
       isLoadingNurses = false;
       notifyListeners();
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoadingNurses = false;
       notifyListeners();

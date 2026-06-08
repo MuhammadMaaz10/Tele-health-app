@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:telehealth_app/core/theme/app_colors.dart';
 import 'package:telehealth_app/shared_widgets/app_button.dart';
 import 'package:telehealth_app/shared_widgets/custom_text.dart';
 import '../registration/controller/doctor_registration_provider.dart';
-import '../otp_verification/views/otp_view.dart';
 
 class PendingApprovalStep extends StatelessWidget {
   final String email;
@@ -48,8 +46,6 @@ class PendingApprovalStep extends StatelessWidget {
                   : () async {
                       try {
                         await provider.submitRegistration(context);
-                        // Navigate to OTP verification for registration
-                        Get.to(() => VerifyEmailView(email: email, isRegistration: true));
                       } catch (e) {
                         // Error already shown in submitRegistration
                       }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
-import 'package:telehealth_app/features/auth/services/auth_api.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:telehealth_app/core/auth/auth_error_mapper.dart';
 
 import '../view/set_new_password_view.dart';
 
@@ -9,8 +9,6 @@ class ForgotPasswordProvider extends ChangeNotifier {
   final emailController = TextEditingController();
   String? errorText;
   bool isLoading = false;
-
-  final AuthApi _authApi = AuthApi();
 
   bool get isValidEmail {
     final email = emailController.text.trim();
@@ -37,15 +35,35 @@ class ForgotPasswordProvider extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      await _authApi.forgotPassword(email: emailController.text.trim());
-      Get.to(const SetNewPasswordView());
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("OTP sent successfully to your email!")),
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        emailController.text.trim(),
       );
-    } on NetworkExceptions catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      if (context.mounted) {
+        Get.to(const SetNewPasswordView());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Check your email for the reset link. After opening it, set your new password on the next screen if you are signed in.',
+            ),
+          ),
+        );
+      }
+    } on AuthException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              userMessageForAuthException(e, flow: AuthFlow.signup),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
     } finally {
       isLoading = false;
       notifyListeners();

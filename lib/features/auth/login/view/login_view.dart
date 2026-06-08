@@ -41,49 +41,60 @@ class _LoginViewState extends State<LoginView> {
           flex: 1,
           child: Container(
             color: AppColors.primary.withOpacity(0.05),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 60),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 250,
-                      height: 250,
-                      color: Colors.transparent,
-                      child: Image.asset(AppImages.logo),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 60),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 250,
+                            height: 250,
+                            color: Colors.transparent,
+                            child: Image.asset(AppImages.logo),
+                          ),
+                          kGap40,
+                          CustomText(
+                            text: 'Welcome to Telehealth Services',
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textColor,
+                            textAlign: TextAlign.center,
+                          ),
+                          kGap20,
+                          CustomText(
+                            text:
+                                'Your trusted platform for seamless healthcare management. Connect with healthcare professionals and manage your health journey with ease.',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textColor.withOpacity(0.7),
+                            textAlign: TextAlign.center,
+                            maxLines: 4,
+                          ),
+                          kGap40,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildFeatureItem(Icons.verified_user, 'Secure'),
+                              kGap30,
+                              _buildFeatureItem(
+                                  Icons.access_time, '24/7 Support'),
+                              kGap30,
+                              _buildFeatureItem(
+                                  Icons.medical_services, 'Expert Care'),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    kGap40,
-                    CustomText(
-                      text: 'Welcome to Telehealth Services',
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textColor,
-                      textAlign: TextAlign.center,
-                    ),
-                    kGap20,
-                    CustomText(
-                      text: 'Your trusted platform for seamless healthcare management. Connect with healthcare professionals and manage your health journey with ease.',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.textColor.withOpacity(0.7),
-                      textAlign: TextAlign.center,
-                      maxLines: 4,
-                    ),
-                    kGap40,
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildFeatureItem(Icons.verified_user, 'Secure'),
-                        kGap30,
-                        _buildFeatureItem(Icons.access_time, '24/7 Support'),
-                        kGap30,
-                        _buildFeatureItem(Icons.medical_services, 'Expert Care'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ),

@@ -25,15 +25,18 @@ class CustomButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bgColor = backgroundColor ?? AppColors.primary;
+    final isDisabled = onPressed == null && !isLoading;
     final txtColor = textColor ?? Colors.white;
+    final resolvedBgColor = isDisabled ? Colors.grey.shade400 : bgColor;
+    final resolvedTxtColor = isDisabled ? Colors.grey.shade100 : txtColor;
 
     return GestureDetector(
-      onTap: isLoading ? null : onPressed,
+      onTap: isLoading || isDisabled ? null : onPressed,
       child: Container(
         height: height,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: isLoading ? bgColor.withOpacity(0.6) : bgColor,
+          color: isLoading ? resolvedBgColor.withValues(alpha: 0.6) : resolvedBgColor,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
         alignment: Alignment.center,
@@ -49,7 +52,7 @@ class CustomButton extends StatelessWidget {
             : Text(
           text,
           style: TextStyle(
-            color: txtColor,
+            color: resolvedTxtColor,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),

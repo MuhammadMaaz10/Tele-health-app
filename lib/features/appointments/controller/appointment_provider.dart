@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:telehealth_app/core/network/api_factory.dart';
-import 'package:telehealth_app/core/network/network_exceptions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:telehealth_app/core/utils/shared_preferences_service.dart';
 import 'package:telehealth_app/features/appointments/services/appointment_api.dart';
 import '../model/appointment_model.dart';
@@ -23,13 +22,7 @@ class AppointmentProvider extends ChangeNotifier {
   Future<void> _initialize() async {
     userEmail = await SharedPreferencesService.getEmail();
     userRole = await SharedPreferencesService.getRole();
-    
-    // Re-initialize token on provider init (important for web/desktop reload)
-    final token = await SharedPreferencesService.getToken();
-    if (token != null && token.isNotEmpty) {
-      ApiFactory.setAuthToken(token);
-    }
-    
+
     notifyListeners();
 
     if (userEmail != null) {
@@ -47,10 +40,18 @@ class AppointmentProvider extends ChangeNotifier {
 
     try {
       appointments = await _appointmentApi.getMyAppointments(userEmail!);
-      // Sort by start time (upcoming first)
-      appointments.sort((a, b) => a.startTime.compareTo(b.startTime));
+      // Sort by creation date (latest first), then by start time (latest first)
+      appointments.sort((a, b) {
+        // First sort by createdAt (most recent first)
+        final createdAtComparison = b.createdAt.compareTo(a.createdAt);
+        if (createdAtComparison != 0) {
+          return createdAtComparison;
+        }
+        // If createdAt is the same, sort by startTime (most recent first)
+        return b.startTime.compareTo(a.startTime);
+      });
       notifyListeners();
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       appointments = [];
       notifyListeners();
@@ -77,7 +78,18 @@ class AppointmentProvider extends ChangeNotifier {
   }
 
   /// Get upcoming appointments
+  /// For doctors: includes confirmed or rescheduled appointments that are in the future
+  /// For others: includes all upcoming appointments
   List<Appointment> get upcomingAppointments {
+    if (userRole == 'DOCTOR' || userRole == 'NURSE') {
+      // For doctors/nurses, show confirmed or rescheduled appointments that are in the future
+      return appointments.where((appointment) => 
+        appointment.isUpcoming && 
+        (appointment.status == AppointmentStatus.CONFIRMED || 
+         appointment.status == AppointmentStatus.RESCHEDULED)
+      ).toList();
+    }
+    // For patients, show all upcoming appointments
     return appointments.where((appointment) => appointment.isUpcoming).toList();
   }
 
@@ -106,7 +118,7 @@ class AppointmentProvider extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
       return response.status == 'CANCELLED';
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoading = false;
       notifyListeners();
@@ -134,7 +146,7 @@ class AppointmentProvider extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
       return response.status == 'CONFIRMED';
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoading = false;
       notifyListeners();
@@ -174,7 +186,7 @@ class AppointmentProvider extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
       return true;
-    } on NetworkExceptions catch (e) {
+    } on PostgrestException catch (e) {
       error = e.message;
       isLoading = false;
       notifyListeners();
